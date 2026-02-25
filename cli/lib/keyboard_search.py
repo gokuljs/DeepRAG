@@ -78,6 +78,17 @@ class InvertedIndex:
             pickle.dump(self.index, f)
         with open(self.doc_path, "wb") as f:
             pickle.dump(self.docmap, f)
+            
+    def load(self):
+        """
+        Load the inverted index and document map from disk.
+        
+        Loads both the index and docmap from pickle files in the cache directory.
+        """
+        with open(self.index_path, "rb") as f:
+            self.index = pickle.load(f)
+        with open(self.doc_path, "rb") as f:
+            self.docmap = pickle.load(f)
 
 
 def transform_text(text):
@@ -145,8 +156,6 @@ def build_command():
     docs = InvertedIndex()
     docs.build()
     docs.save()
-    doc_ids = docs.get_documents("merida")
-    print("Printing documents: ", doc_ids[0])
 
 
 def search_command(query, n_results):
@@ -164,12 +173,17 @@ def search_command(query, n_results):
         List of movie dictionaries matching the query (up to n_results)
     """
     movies = load_movies()
-    results = []
+    index = InvertedIndex()
+    index.load()
+    seen,results = set(),[]
     query_tokens = tokenize_text(query)
-    for movie in movies:
-        movie_tokens = tokenize_text(movie["title"])
-        if has_matching_tokens(query_tokens, movie_tokens):
-            results.append(movie)
-        if len(results) == n_results:
-            break         
+    for query in query_tokens:
+        mathcing_doc_ids = index.get_documents(query)
+        for doc_id in mathcing_doc_ids:
+            if doc_id in seen:
+                continue
+            seen.add(doc_id)
+            results.append(index.docmap[doc_id])
+            if len(results) == n_results:
+                return results
     return results
