@@ -83,7 +83,7 @@ class InvertedIndex:
         token = token[0]
         doc_count = len(self.docmap)
         term_doc_count = len(self.index[token])
-        return math.log(doc_count + 1 / term_doc_count + 1)
+        return math.log((doc_count + 1) / (term_doc_count + 1))
         
     def build(self):
         """
