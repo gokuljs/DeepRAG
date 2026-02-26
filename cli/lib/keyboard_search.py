@@ -96,6 +96,15 @@ class InvertedIndex:
         tf = self.get_term_frequency(doc_id, term)
         idf = self.get_idf(term)
         return tf * idf
+    
+    def get_bm25_idf(self, term):
+        token= tokenize_text(term)
+        if len(token) != 1:
+            raise ValueError("can only have one token")
+        token = token[0]
+        doc_count = len(self.docmap)
+        term_doc_count = len(self.index[token])
+        return math.log((doc_count - term_doc_count + 0.5) / (term_doc_count + 0.5) + 1)
         
     def build(self):
         """
@@ -189,6 +198,12 @@ def idf_command(term):
     idx.load()
     print("Print inverse document frequency for the term: ", term, "is", idx.get_idf(term))
     return idx.get_idf(term)
+
+def get_bm25_idf_command(term):
+    idx = InvertedIndex()
+    idx.load()
+    print("Print BM25 IDF for the term: ", term, "is", idx.get_bm25_idf(term))
+    return idx.get_bm25_idf(term)
 
 def get_tf_idf_command(doc_id, term):
     """

@@ -1,5 +1,5 @@
 import argparse
-from lib.keyboard_search import search_command, build_command, tf_command, idf_command, get_tf_idf_command
+from lib.keyboard_search import search_command, build_command, tf_command, idf_command, get_tf_idf_command, get_bm25_idf_command
 
 def main():
     parser = argparse.ArgumentParser(description="Keyword Search CLI")
@@ -14,6 +14,8 @@ def main():
     search_parser.add_argument("term", type=str, help="Term")
     search_parser= subparsers.add_parser("tfidf", help="TF-IDF")
     search_parser.add_argument("doc_id", type=int, help="Document ID")
+    search_parser.add_argument("term", type=str, help="Term")
+    search_parser= subparsers.add_parser("bm25idf", help="BM25 IDF")
     search_parser.add_argument("term", type=str, help="Term")
     args = parser.parse_args()
     match args.command:
@@ -35,6 +37,9 @@ def main():
         case "tfidf":
             print(f"TF-IDF for {args.term} in document {args.doc_id}")
             result = get_tf_idf_command(args.doc_id,args.term)
+            print(result)
+        case "bm25idf":
+            result = get_bm25_idf_command(args.term)
             print(result)
         case _:
             parser.print_help()
