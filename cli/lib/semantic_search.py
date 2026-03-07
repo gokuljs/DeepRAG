@@ -129,21 +129,27 @@ def search_command(query, n_results=5):
         print(f"{i + 1}. {result['title']} \n {result['description'].strip()[0:1000]} \n Score: {result['score']}")
 
 
-def fixed_size_chunking(text, chunk_size=1000):
+def fixed_size_chunking(text, overlap, chunk_size=1000):
     """
     Chunk a given text into fixed size chunks.
     """
+    if overlap >= chunk_size:
+        raise ValueError("overlap must be less than chunk_size (otherwise step size would be zero)")
     words = text.split()
     chunks = []
-    for i in range(0, len(words), chunk_size):
-        chunks.append(" ".join(words[i:i+chunk_size]))
+    step_size = chunk_size - overlap
+    for i in range(0, len(words), step_size):
+        chunk_words = words[i:i+chunk_size]
+        if len(chunk_words) <=overlap:
+            break
+        chunks.append(" ".join(chunk_words))
     return chunks
         
-def chunk_text(query, chunk_size=200):
+def chunk_text(query, overlap, chunk_size=200):
     """
     Chunk a given text into fixed size chunks.
     """
-    chunks = fixed_size_chunking(query, chunk_size)
+    chunks = fixed_size_chunking(query, overlap, chunk_size)
     print(f"chunking {len(chunks)} chunks")
     for i,chunk in enumerate(chunks):
         print(f"{i + 1}. {chunk}")

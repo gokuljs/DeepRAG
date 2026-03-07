@@ -16,6 +16,7 @@ def main():
     chunk_text_parser = subparsers.add_parser("chunktext", help="Chunk a given text into fixed size chunks")
     chunk_text_parser.add_argument("text", type=str, help="Text to chunk")
     chunk_text_parser.add_argument("chunk_size", type=int, help="Chunk size", nargs="?", default=200)
+    chunk_text_parser.add_argument("overlap", type=int, help="Overlap", nargs="?", default=20)
     args = parser.parse_args()
     match args.command:
         case "verifyembeddings":
@@ -29,7 +30,7 @@ def main():
         case "search":
             search_command(args.query)
         case "chunktext":
-            chunk_text(args.text, args.chunk_size)
+            chunk_text(args.text,args.overlap, args.chunk_size,)
         case _:
             print("Invalid command")
 
