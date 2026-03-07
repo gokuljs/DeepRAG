@@ -127,3 +127,24 @@ def search_command(query, n_results=5):
     results = ss.search(query, n_results)
     for i,result in enumerate(results):
         print(f"{i + 1}. {result['title']} \n {result['description'].strip()[0:1000]} \n Score: {result['score']}")
+
+
+def fixed_size_chunking(text, chunk_size=1000):
+    """
+    Chunk a given text into fixed size chunks.
+    """
+    words = text.split()
+    chunks = []
+    for i in range(0, len(words), chunk_size):
+        chunks.append(" ".join(words[i:i+chunk_size]))
+    return chunks
+        
+def chunk_text(query, chunk_size=200):
+    """
+    Chunk a given text into fixed size chunks.
+    """
+    chunks = fixed_size_chunking(query, chunk_size)
+    print(f"chunking {len(chunks)} chunks")
+    for i,chunk in enumerate(chunks):
+        print(f"{i + 1}. {chunk}")
+    

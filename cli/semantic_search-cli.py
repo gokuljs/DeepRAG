@@ -1,5 +1,5 @@
 import argparse
-from lib.semantic_search import verify_model,embed_text,verify_embeddings,embed_query_text,search_command
+from lib.semantic_search import verify_model,embed_text,verify_embeddings,embed_query_text,search_command,chunk_text
 
 def main():
     parser = argparse.ArgumentParser(description="Semantic Search CLI")
@@ -13,6 +13,9 @@ def main():
     embed_query_text_parser.add_argument("query", type=str, help="Query text to embed")
     search_parser = subparsers.add_parser("search", help="Search for the most similar documents to a given query")
     search_parser.add_argument("query", type=str, help="Query text to search for")
+    chunk_text_parser = subparsers.add_parser("chunktext", help="Chunk a given text into fixed size chunks")
+    chunk_text_parser.add_argument("text", type=str, help="Text to chunk")
+    chunk_text_parser.add_argument("chunk_size", type=int, help="Chunk size", nargs="?", default=200)
     args = parser.parse_args()
     match args.command:
         case "verifyembeddings":
@@ -25,6 +28,8 @@ def main():
             embed_query_text(args.query)
         case "search":
             search_command(args.query)
+        case "chunktext":
+            chunk_text(args.text, args.chunk_size)
         case _:
             print("Invalid command")
 
