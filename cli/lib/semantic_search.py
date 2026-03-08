@@ -1,3 +1,4 @@
+import re
 from sentence_transformers import SentenceTransformer
 import numpy as np
 from pathlib import Path
@@ -144,7 +145,39 @@ def fixed_size_chunking(text, overlap, chunk_size=1000):
             break
         chunks.append(" ".join(chunk_words))
     return chunks
-        
+
+def semantic_chunking(text, overlap=0, max_chunk_size=4):
+    """
+    Chunk text on sentence boundaries to preserve meaning.
+    Splits on sentence endings (. ! ?) and groups up to max_chunk_size sentences per chunk,
+    with optional overlap of sentences between consecutive chunks.
+    """
+    if overlap >= max_chunk_size:
+        raise ValueError("overlap must be less than max_chunk_size")
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    sentences = [s.strip() for s in sentences if s.strip()]
+    if not sentences:
+        return []
+    chunks = []
+    step_size = max_chunk_size - overlap
+    for i in range(0, len(sentences), step_size):
+        chunk_sentences = sentences[i : i + max_chunk_size]
+        if not chunk_sentences:
+            break
+        chunks.append(" ".join(chunk_sentences))
+    return chunks
+
+
+def semantic_chunk_command(text, max_chunk_size=4, overlap=0):
+    """
+    Run semantic chunking and print chunk information.
+    """
+    chunks = semantic_chunking(text, overlap=overlap, max_chunk_size=max_chunk_size)
+    print(f"Semantic chunking: {len(chunks)} chunks (max {max_chunk_size} sentences, overlap {overlap})")
+    for i, chunk in enumerate(chunks):
+        print(f"{i + 1}. {chunk}")
+
+
 def chunk_text(query, overlap, chunk_size=200):
     """
     Chunk a given text into fixed size chunks.
