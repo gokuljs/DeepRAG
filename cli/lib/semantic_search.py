@@ -249,9 +249,12 @@ def semantic_chunking(text, overlap=0, max_chunk_size=4):
     Splits on sentence endings (. ! ?) and groups up to max_chunk_size sentences per chunk,
     with optional overlap of sentences between consecutive chunks.
     """
+    text = text.strip()
+    if text is None or text.strip() == "":
+        return []
     if overlap >= max_chunk_size:
         raise ValueError("overlap must be less than max_chunk_size")
-    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    sentences = re.split(r"(?<=[.!?])\s+", text)
     sentences = [s.strip() for s in sentences if s.strip()]
     if not sentences:
         return []
