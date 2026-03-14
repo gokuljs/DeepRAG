@@ -13,6 +13,7 @@ import os
 
 from .keyword_search import InvertedIndex
 from .semantic_search import chunkedSemanticSearch
+from .search_utils import load_movies
 
 
 class HybridSearch:
@@ -89,7 +90,7 @@ class HybridSearch:
         """
         bm25results = self._bm25_search(query, limit * 500)
         semanticResults = self.semantic_search.search_chunks(query, limit * 500)
-        combinedResults = combine_results(bm25results, semanticResults)
+        combinedResults = combine_search_results(bm25results, semanticResults)
         return combinedResults
 
     def rrf_search(self, query: str, k: int, limit: int = 10) -> list[dict]:
@@ -113,7 +114,7 @@ class HybridSearch:
         raise NotImplementedError("RRF hybrid search is not implemented yet.")
 
 
-def hybrid_score(bm25_score: float, semantic_score: float, alpha: float) -> float:
+def hybrid_score(bm25_score, semantic_score, alpha=0.5):
     """
     Compute a single hybrid relevance score from BM25 and semantic sub-scores.
 
@@ -130,6 +131,81 @@ def hybrid_score(bm25_score: float, semantic_score: float, alpha: float) -> floa
         Weighted average of the two scores.
     """
     return bm25_score * alpha + semantic_score * (1 - alpha)
+
+
+def normalize_scores(results):
+    """
+    Normalize a list of scores to a range of 0 to 1.
+    """
+    scores=[result["score"] for result in results]
+    norm_scores=normalized_score(scores)
+    for idx, result in enumerate(results):
+        result["normalized_score"] = norm_scores[idx]
+    return results
+
+def combine_search_results(bm25results, semanticResults):
+    """
+    Combine and normalize results from BM25 and semantic search, then compute hybrid scores.
+
+    This function takes two lists of search result dictionaries—one from BM25 retrieval
+    and one from a semantic model. Each dictionary is expected to contain:
+        - "doc_id": Unique identifier for the document.
+        - "title": Title of the document.
+        - "description": Description (or snippet) of the document.
+        - "score": Raw relevance score from the respective method.
+
+    The function normalizes both sets of scores to [0, 1], merges results on doc_id,
+    and assigns missing scores for each method (BM25 or semantic) as zero if a document
+    is only present in one list. For each document, it computes a hybrid score using
+    `hybrid_score` and returns a list of merged results sorted in descending order of
+    hybrid score.
+
+    Args:
+        bm25results (list[dict]): List of BM25 search result dictionaries.
+        semanticResults (list[dict]): List of semantic search result dictionaries.
+
+    Returns:
+        list[dict]: Combined, normalized, and hybrid-scored result dictionaries with keys:
+            - id
+            - bm25_score
+            - sem_score
+            - title
+            - description
+            - hybrid_score
+    """
+    bm25_norm = normalize_scores(bm25results)
+    sem_norm = normalize_scores(semanticResults)
+    combinedNorm = {}
+    for norm in bm25_norm:
+        doc_id = norm["doc_id"]
+        combinedNorm[doc_id] = {
+            "id": doc_id,
+            "bm25_score": norm["normalized_score"],
+            "sem_score": 0,
+            "title": norm["title"],
+            "description": norm["description"],
+        }
+    for norm in sem_norm:
+        # Semantic results use "id" while BM25 results use "doc_id"
+        doc_id = norm.get("doc_id") or norm.get("id")
+        if doc_id not in combinedNorm:
+            combinedNorm[doc_id] = {
+                "id": doc_id,
+                "bm25_score": 0,
+                "sem_score": norm["normalized_score"],
+                "title": norm["title"],
+                "description": norm["description"],
+            }
+        else:
+            combinedNorm[doc_id]["sem_score"] = max(combinedNorm[doc_id]["sem_score"], norm["normalized_score"])
+
+    for k, v in combinedNorm.items():
+        combinedNorm[k]["hybrid_score"] = hybrid_score(v["bm25_score"], v["sem_score"])
+
+    return sorted(combinedNorm.values(), key=lambda x: x["hybrid_score"], reverse=True)
+    
+        
+    
 
 
 def normalized_score(scores: list[float]) -> list[float]:
@@ -156,3 +232,31 @@ def normalized_score(scores: list[float]) -> list[float]:
     if score_range == 0:
         return [0.0 for _ in scores]
     return [(score - minimumScore) / score_range for score in scores]
+
+def weighted_search(query: str, alpha: float = 0.5, limit: int = 5):
+    """
+    Run a hybrid (weighted) search that combines BM25 and semantic scores for a given query,
+    and print the top results.
+
+    This function loads the movie documents, instantiates a HybridSearch object, executes the
+    weighted hybrid search using the specified parameters, and prints nicely formatted
+    information about each result.
+
+    Args:
+        query (str): The search query string.
+        alpha (float): Weight for BM25 score when combining with semantic score (0.0 = pure semantic, 1.0 = pure BM25).
+        limit (int): Maximum number of results to print.
+
+    Prints:
+        title, description (truncated to 1000 chars), hybrid score, BM25 score, and semantic score for each result.
+    """
+    documents = load_movies()
+    hs = HybridSearch(documents)
+    results = hs.weighted_search(query, alpha, limit)
+    for result in results[:limit]:
+        print(f"Title: {result['title']}")
+        print(f"Description: {result['description'][:1000]}")
+        print(f"Hybrid Score: {result['hybrid_score']}")
+        print(f"BM25 Score: {result['bm25_score']}")
+        print(f"Semantic Score: {result['sem_score']}")
+        print("-" * 100)

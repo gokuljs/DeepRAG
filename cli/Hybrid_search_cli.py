@@ -17,7 +17,7 @@ Usage examples::
 
 import argparse
 
-from lib.hybrid_search import normalized_score
+from lib.hybrid_search import normalized_score, weighted_search
 
 
 def main() -> None:
@@ -74,9 +74,8 @@ def main() -> None:
     match args.command:
         case "normalize":
             print(normalized_score(args.scores))
-        case _:
-            parser.print_help()
-
+        case "weightedsearch":
+            weighted_search(args.query, args.alpha, args.limit)
 
 if __name__ == "__main__":
     main()

@@ -188,6 +188,7 @@ class InvertedIndex:
             format_results.append({
                 "doc_id": doc_id,
                 "title": doc["title"],
+                "description": doc.get("description", ""),
                 "score": score
             })
             
