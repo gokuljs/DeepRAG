@@ -17,7 +17,7 @@ Usage examples::
 
 import argparse
 
-from lib.hybrid_search import normalized_score, weighted_search
+from lib.hybrid_search import normalized_score, weighted_search, rrf_score_search
 
 
 def main() -> None:
@@ -36,6 +36,10 @@ def main() -> None:
         ``weightedsearch`` handler is currently wired up in the argument parser
         but not yet dispatched in the ``match`` block — it is a placeholder for
         future implementation.
+
+    rrfsearch
+        Accepts a query string, a k value (dampening factor), and an
+        optional result limit, then runs a reciprocal rank fusion search.
     """
     parser = argparse.ArgumentParser(description="Hybrid Search CLI")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -57,23 +61,32 @@ def main() -> None:
     )
     ws_parser.add_argument("query", type=str, help="Query text to search for")
     ws_parser.add_argument(
-        "alpha",
+        "--alpha",
         type=float,
         default=0.5,
         help="Weight for BM25 score (0.0 = pure semantic, 1.0 = pure BM25)",
     )
     ws_parser.add_argument(
-        "limit",
+        "--limit",
         type=int,
         default=5,
         help="Maximum number of results to return",
     )
+    rrfsearch_parser = subparsers.add_parser(
+        "rrfsearch",
+        help="A reciprocal rank fusion search is hybrid search with reciprocal rank fusion combination",
+    )
+    rrfsearch_parser.add_argument("query", type=str, help="Query text to search for")
+    rrfsearch_parser.add_argument("--k", type=float, default=0.5, help="Dampening factor")
+    rrfsearch_parser.add_argument("--limit", type=int, default=5, help="Maximum number of results to return")
 
     args = parser.parse_args()
 
     match args.command:
         case "normalize":
             print(normalized_score(args.scores))
+        case "rrfsearch":
+            rrf_score_search(args.query, args.k, args.limit)
         case "weightedsearch":
             weighted_search(args.query, args.alpha, args.limit)
 
