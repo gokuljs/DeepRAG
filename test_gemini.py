@@ -16,7 +16,7 @@ def generate_content():
         model=MODEL, contents=prompt
     )
     print(response.text[:1000])
-    print(response.usage)
+    print(response.usage_metadata)
 
 if __name__ == "__main__":
     generate_content()
