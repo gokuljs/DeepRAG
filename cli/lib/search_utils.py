@@ -21,6 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
 MOVIES_FILE = DATA_DIR / "data.json"
 STOPWORDS_FILE = DATA_DIR / "stopwords.txt"
+PROMPTS_DIR = PROJECT_ROOT /'lib' / 'prompts'
 
 # Directory where pre-built indexes and embeddings are cached between runs.
 CACHE_PATH = PROJECT_ROOT / "cache"

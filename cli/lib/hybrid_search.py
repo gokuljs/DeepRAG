@@ -14,6 +14,7 @@ import os
 from .keyword_search import InvertedIndex
 from .semantic_search import chunkedSemanticSearch
 from .search_utils import load_movies
+from .llm import correct_spelling
 
 
 class HybridSearch:
@@ -312,9 +313,31 @@ def weighted_search(query, alpha = 0.5, limit = 5):
         print("-" * 100)
 
 
-def rrf_score_search(query, k = 0.5, limit = 5):
+def rrf_score_search(query, k=0.5, limit=5, enhance=None):
+    """
+    Run a Reciprocal Rank Fusion (RRF) hybrid search that merges BM25 and semantic search results,
+    and print the top results.
+
+    This function loads the movie documents, instantiates a HybridSearch object, applies optional
+    query enhancement (currently, spelling correction), executes the RRF hybrid search using the 
+    specified parameters, and prints nicely formatted information about each result.
+
+    Args:
+        query (str): The search query string.
+        k (float): RRF hyperparameter controlling influence of rank positions (lower k → steeper drop-off).
+        limit (int): Maximum number of results to print.
+        enhance (str, optional): Optional query enhancement. If set to "spell", corrects the query's spelling.
+
+    Prints:
+        title, BM25 rank, semantic rank, and final RRF score for each result.
+    """
     documents = load_movies()
     hs = HybridSearch(documents)
+    match enhance:
+        case "spell":
+            new_query = correct_spelling(query)
+            print(f"New query: {new_query} -> Original query: {query}")
+            query = new_query
     results = hs.rrf_search(query, k, limit)
     for result in results[:limit]:
         print(f"Title: {result['title']}")
