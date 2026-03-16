@@ -60,3 +60,14 @@ def rewrite_query(query):
     with open(PROMPTS_DIR / "rewrite.md", "r") as f:
         prompt = f.read()
     return generate_content(prompt, query)
+
+def expand_query(query):
+    """
+    Use an LLM (Gemini) to expand a provided query string.
+
+    This function reads a expand prompt template from 'prompts/expand.md',
+    feeds the original query and template to the LLM, and returns the LLM's suggested expand.
+    """
+    with open(PROMPTS_DIR / "expand.md", "r") as f:
+        prompt = f.read()
+    return generate_content(prompt, query)
