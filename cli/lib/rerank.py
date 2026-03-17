@@ -1,4 +1,5 @@
 import os
+import json
 from dotenv import load_dotenv
 from google import genai
 from numpy import promote_types
@@ -29,3 +30,31 @@ def individual_rerank(query, documents):
         print(f"Title: {doc['title']} - Rerank Response: {rerank_score}")
     result = sorted(results, key=lambda x: x["rerank_response"], reverse=True)
     return results
+
+def batch_rerank(query, documents):
+    with open(PROMPTS_DIR / "batch_rerank.md", "r") as f:
+        prompt = f.read()
+    results =[]
+    movie_template= '''<movie idx="{idx}"> {title}: \n {desc} \n</movie>'''
+    doc_list_str = ""
+    for idx, doc in enumerate(documents):
+        doc_list_str+=movie_template.format(idx=idx, title=doc["title"], desc=doc["description"])
+    
+    _prompt = prompt.format(query=query, doc_list_str=doc_list_str)
+    response = client.models.generate_content(model=MODEL, contents=_prompt)
+    print("==="*10)
+    print(response.text)
+    print("==="*10)
+    raw = response.text.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+    response_parsed = json.loads(raw)
+    results =[]
+    for idx, doc in enumerate(documents):
+        results.append({**doc,**{"rerank_score":response_parsed.index(int(idx))}})
+    result = sorted(results, key=lambda x: x["rerank_score"], reverse=False)
+    return result
+    

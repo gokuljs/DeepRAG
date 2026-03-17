@@ -15,7 +15,7 @@ from .keyword_search import InvertedIndex
 from .semantic_search import chunkedSemanticSearch
 from .search_utils import load_movies
 from .llm import correct_spelling, rewrite_query, expand_query
-from .rerank import individual_rerank
+from .rerank import individual_rerank, batch_rerank
 
 
 class HybridSearch:
@@ -347,15 +347,20 @@ def rrf_score_search(query, k=0.5, limit=5, enhance=None, rerank_method=None):
             new_query = expand_query(query)
             print(f"New query: {new_query} -> Original query: {query}")
             query = new_query
-    rrf_final_ranklimit = 5 * limit if rerank_method == "individual" else limit
+    rrf_final_ranklimit = 5 * limit if rerank_method in ["individual","batch"] else limit
     results = hs.rrf_search(query, k, rrf_final_ranklimit)
-    if rerank_method == "individual":
-        print(f"Reranking {len(results)} results to {limit} using individual reranker")
-        final_results = individual_rerank(query, results)[:limit]
-    else:
-        final_results = results[:limit]
+    match rerank_method:
+        case "individual":
+            print(f"Reranking {len(results)} results to {limit} using individual reranker")
+            final_results = individual_rerank(query, results)[:rrf_final_ranklimit]
+        case "batch":
+            print(f"Reranking {len(results)} results to {limit} using batch reranker")
+            final_results = batch_rerank(query, results)[:rrf_final_ranklimit]
+        case _:
+            pass
     for result in final_results:
         print(f"Title: {result['title']}")
+        print(f"Description: {result['description'][:1000]}")
         print(f"BM25 Rank: {result['bm25rank']}")
         print(f"Semantic Rank: {result['sem_rank']}")
         print(f"RRF Score: {result['rrf_score']}")
