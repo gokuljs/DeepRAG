@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from google import genai
 from numpy import promote_types
 from .search_utils import PROMPTS_DIR
+from sentence_transformers import CrossEncoder
 
 load_dotenv()
 MODEL = "gemini-2.5-flash"
@@ -12,6 +13,7 @@ api_key = os.environ.get("GEMINI_API_KEY")
 if not api_key:
     raise RuntimeError("GEMINI_API_KEY environment variable not set")
 client = genai.Client(api_key=api_key)
+cross_encoder = CrossEncoder("cross-encoder/ms-marco-TinyBERT-L2-v2")
 
 def individual_rerank(query, documents):
     with open(PROMPTS_DIR / "individual_rerank.md", "r") as f:
@@ -56,5 +58,20 @@ def batch_rerank(query, documents):
     for idx, doc in enumerate(documents):
         results.append({**doc,**{"rerank_score":response_parsed.index(int(idx))}})
     result = sorted(results, key=lambda x: x["rerank_score"], reverse=False)
+    return result
+    
+
+def cross_encoder_rerank(query, documents):
+    pairs = []
+    for doc in documents:
+        pairs.append([query, f"{doc.get('title', '')} - {doc.get('description', '')}"])
+    cross_encoder = CrossEncoder("cross-encoder/ms-marco-TinyBERT-L2-v2")
+    scores = cross_encoder.predict(pairs)
+    results =[]
+    for idx, doc in enumerate(documents):
+        results.append({**doc,**{"cross_encoder_score":scores[idx]}})
+    result = sorted(results, key=lambda x: x["cross_encoder_score"], reverse=True)
+    print(f"Cross Encoder Reranked {len(results)} results")
+    print(result[:2])
     return result
     

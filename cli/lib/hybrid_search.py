@@ -15,7 +15,7 @@ from .keyword_search import InvertedIndex
 from .semantic_search import chunkedSemanticSearch
 from .search_utils import load_movies
 from .llm import correct_spelling, rewrite_query, expand_query
-from .rerank import individual_rerank, batch_rerank
+from .rerank import individual_rerank, batch_rerank, cross_encoder_rerank
 
 
 class HybridSearch:
@@ -347,7 +347,7 @@ def rrf_score_search(query, k=0.5, limit=5, enhance=None, rerank_method=None):
             new_query = expand_query(query)
             print(f"New query: {new_query} -> Original query: {query}")
             query = new_query
-    rrf_final_ranklimit = 5 * limit if rerank_method in ["individual","batch"] else limit
+    rrf_final_ranklimit = 5 * limit if rerank_method else limit
     results = hs.rrf_search(query, k, rrf_final_ranklimit)
     match rerank_method:
         case "individual":
@@ -356,6 +356,9 @@ def rrf_score_search(query, k=0.5, limit=5, enhance=None, rerank_method=None):
         case "batch":
             print(f"Reranking {len(results)} results to {limit} using batch reranker")
             final_results = batch_rerank(query, results)[:rrf_final_ranklimit]
+        case "cross-encoder":
+            print(f"Reranking {len(results)} results to {limit} using cross encoder reranker")
+            final_results = cross_encoder_rerank(query, results)[:rrf_final_ranklimit]
         case _:
             pass
     for result in final_results:
