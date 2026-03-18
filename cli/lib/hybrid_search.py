@@ -352,13 +352,13 @@ def rrf_score_search(query, k=0.5, limit=5, enhance=None, rerank_method=None):
     match rerank_method:
         case "individual":
             print(f"Reranking {len(results)} results to {limit} using individual reranker")
-            final_results = individual_rerank(query, results)[:rrf_final_ranklimit]
+            final_results = individual_rerank(query, results)[:limit]
         case "batch":
             print(f"Reranking {len(results)} results to {limit} using batch reranker")
-            final_results = batch_rerank(query, results)[:rrf_final_ranklimit]
+            final_results = batch_rerank(query, results)[:limit]
         case "cross-encoder":
             print(f"Reranking {len(results)} results to {limit} using cross encoder reranker")
-            final_results = cross_encoder_rerank(query, results)[:rrf_final_ranklimit]
+            final_results = cross_encoder_rerank(query, results)[:limit]
         case _:
             pass
     for result in final_results:

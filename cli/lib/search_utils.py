@@ -22,7 +22,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 MOVIES_FILE = DATA_DIR / "data.json"
 STOPWORDS_FILE = DATA_DIR / "stopwords.txt"
 PROMPTS_DIR = PROJECT_ROOT /'lib' / 'prompts'
-
+GOLDEN_DATASET_FILE = DATA_DIR / "golden_dataset.json"
 # Directory where pre-built indexes and embeddings are cached between runs.
 CACHE_PATH = PROJECT_ROOT / "cache"
 
@@ -66,3 +66,23 @@ def load_stopwords() -> list[str]:
     with open(STOPWORDS_FILE, "r") as f:
         stopwords = [line.strip() for line in f.readlines()]
     return stopwords
+
+
+def golden_dataset():
+    """
+    Load the golden dataset containing test cases for search evaluation.
+
+    Reads ``data/golden_dataset.json`` (relative to the project root) and returns
+    the value of its top-level ``"test_cases"`` key as a list of dicts.
+    Each dict contains a "query" string and a list of "relevant_docs" titles.
+
+    Returns:
+        List[dict]: List of test case dicts for evaluation purposes.
+
+    Raises:
+        FileNotFoundError: If ``data/golden_dataset.json`` does not exist.
+        KeyError: If the JSON file does not contain a ``"test_cases"`` key.
+    """
+    with open(GOLDEN_DATASET_FILE, "r") as f:
+        data = json.load(f)
+    return data["test_cases"]
