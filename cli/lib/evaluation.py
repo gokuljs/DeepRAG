@@ -20,9 +20,11 @@ def evaluate(limit):
         precision = relevant_count / limit
         retrived = ','.join([result["title"] for result in rrf_results])
         recall = relevant_count / len(relevant_docs)
+        f1_score = 2 * (precision * recall) / (precision + recall)
         print(f"query: {query}")
         print(f"Precision@{limit}: {precision}")
         print(f"Recall@{limit}: {recall}")
+        print(f"F1 Score@{limit}: {f1_score}")
         print(f"Retrived: {retrived}")
         print(f"Relevant: {relevant_docs}")
     
