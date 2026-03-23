@@ -117,3 +117,11 @@ def citations(query, documents):
     prompt = prompt_template.format(query=query, documents=documents)
     response = client.models.generate_content(model=MODEL, contents=prompt)
     return response.text
+
+
+def qa_llm(query, documents):
+    with open(PROMPTS_DIR / "qa.md", "r") as f:
+        prompt_template = f.read()
+    prompt = prompt_template.format(query=query, context=documents)
+    response = client.models.generate_content(model=MODEL, contents=prompt)
+    return response.text

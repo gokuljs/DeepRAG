@@ -1,4 +1,4 @@
-from lib.llm import answer_question, summarize, citations
+from lib.llm import answer_question, summarize, citations, qa_llm
 from lib.hybrid_search import HybridSearch
 from lib.search_utils import load_movies
 
@@ -54,3 +54,15 @@ def citations_llm(query, limit):
         print(f"{res['title']}")
     print("LLm citations")
     print(citations_results)
+
+
+def qa(query, limit):
+    movies = load_movies()
+    hs = HybridSearch(movies)
+    rrf_result = hs.rrf_search(query=query, limit=limit, k=0.5)
+    qa_results = qa_llm(query, rrf_result)
+    print("search results")
+    for res in rrf_result:
+        print(f"{res['title']}")
+    print("LLm question answer")
+    print(qa_results)
