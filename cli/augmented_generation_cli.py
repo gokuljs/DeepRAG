@@ -1,5 +1,5 @@
 import argparse
-from lib.rag import rag
+from lib.rag import rag, rag_summarize
 
 
 def main():
@@ -12,13 +12,21 @@ def main():
         "rag", help="Perform RAG (search + generate answer)"
     )
     rag_parser.add_argument("query", type=str, help="Search query for RAG")
-
+    summary_parser = subparsers.add_parser(
+        "summarize", help="For summarizing llm search results")
+    summary_parser.add_argument(
+        "query", type=str, help="enter your search query to summarize")
+    summary_parser.add_argument(
+        "--limit", type=int, default=5, help="search limits")
     args = parser.parse_args()
 
     match args.command:
         case "rag":
             query = args.query
             rag(query=query)
+        case "summarize":
+            rag_summarize(args.query, args.limit)
+
         case _:
             parser.print_help()
 

@@ -101,3 +101,11 @@ def answer_question(query, docs):
     prompt = prompt_template.format(query=query, docs=docs)
     response = client.models.generate_content(model=MODEL, contents=prompt)
     return response.text
+
+
+def summarize(query, results):
+    with open(PROMPTS_DIR / "augument_summary.md", "r") as f:
+        prompt_template = f.read()
+    prompt = prompt_template.format(query=query, results=results)
+    response = client.models.generate_content(model=MODEL, contents=prompt)
+    return response.text
