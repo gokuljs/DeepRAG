@@ -109,3 +109,11 @@ def summarize(query, results):
     prompt = prompt_template.format(query=query, results=results)
     response = client.models.generate_content(model=MODEL, contents=prompt)
     return response.text
+
+
+def citations(query, documents):
+    with open(PROMPTS_DIR / "citations.md", "r") as f:
+        prompt_template = f.read()
+    prompt = prompt_template.format(query=query, documents=documents)
+    response = client.models.generate_content(model=MODEL, contents=prompt)
+    return response.text

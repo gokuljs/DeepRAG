@@ -1,4 +1,4 @@
-from lib.llm import answer_question, summarize
+from lib.llm import answer_question, summarize, citations
 from lib.hybrid_search import HybridSearch
 from lib.search_utils import load_movies
 
@@ -42,3 +42,15 @@ def rag_summarize(query, limit):
         print(f"{res['title']}")
     print("Rag summarize result")
     print(summarize_results)
+
+
+def citations_llm(query, limit):
+    movies = load_movies()
+    hs = HybridSearch(movies)
+    rrf_result = hs.rrf_search(query=query, limit=limit, k=0.5)
+    citations_results = citations(query, rrf_result)
+    print("search results")
+    for res in rrf_result:
+        print(f"{res['title']}")
+    print("LLm citations")
+    print(citations_results)
