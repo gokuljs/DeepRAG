@@ -14,7 +14,7 @@ import os
 from .keyword_search import InvertedIndex
 from .semantic_search import chunkedSemanticSearch
 from .search_utils import load_movies
-from .llm import correct_spelling, rewrite_query, expand_query
+from .llm import correct_spelling, rewrite_query, expand_query, llm_judge
 from .rerank import individual_rerank, batch_rerank, cross_encoder_rerank
 
 
@@ -314,7 +314,7 @@ def weighted_search(query, alpha = 0.5, limit = 5):
         print("-" * 100)
 
 
-def rrf_score_search(query, k=0.5, limit=5, enhance=None, rerank_method=None):
+def rrf_score_search(query, k=0.5, limit=5, enhance=None, rerank_method=None, evaluate=None):
     """
     Run a Reciprocal Rank Fusion (RRF) hybrid search that merges BM25 and semantic search results,
     and print the top results.
@@ -360,7 +360,7 @@ def rrf_score_search(query, k=0.5, limit=5, enhance=None, rerank_method=None):
             print(f"Reranking {len(results)} results to {limit} using cross encoder reranker")
             final_results = cross_encoder_rerank(query, results)[:limit]
         case _:
-            pass
+            final_results = results
     for result in final_results:
         print(f"Title: {result['title']}")
         print(f"Description: {result['description'][:1000]}")
@@ -368,3 +368,13 @@ def rrf_score_search(query, k=0.5, limit=5, enhance=None, rerank_method=None):
         print(f"Semantic Rank: {result['sem_rank']}")
         print(f"RRF Score: {result['rrf_score']}")
         print("-" * 100)
+
+    if evaluate:
+        formatted_results = "\n".join(
+            f"{i+1}. {r['title']}: {r['description'][:500]}"
+            for i, r in enumerate(final_results)
+        )
+        scores = llm_judge(query, formatted_results)
+        print("\nEvaluation Report:")
+        for i, (result, score) in enumerate(zip(final_results, scores), start=1):
+            print(f"{i}. {result['title']}: {score}/3")

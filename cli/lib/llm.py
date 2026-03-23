@@ -1,4 +1,5 @@
 import os
+import json
 from dotenv import load_dotenv
 from google import genai
 from numpy import promote_types
@@ -50,6 +51,7 @@ def correct_spelling(query):
         prompt = f.read()
     return generate_content(prompt, query)
 
+
 def rewrite_query(query):
     """
     Use an LLM (Gemini) to rewrite a provided query string.
@@ -61,6 +63,7 @@ def rewrite_query(query):
         prompt = f.read()
     return generate_content(prompt, query)
 
+
 def expand_query(query):
     """
     Use an LLM (Gemini) to expand a provided query string.
@@ -71,3 +74,21 @@ def expand_query(query):
     with open(PROMPTS_DIR / "expand.md", "r") as f:
         prompt = f.read()
     return generate_content(prompt, query)
+
+
+def llm_judge(query, formatted_results):
+    """
+    Use an LLM (Gemini) to judge the relevance of a list of results to a query.
+
+    Args:
+        query (str): The original search query.
+        formatted_results (str): Pre-formatted string of results to evaluate.
+
+    Returns:
+        list[int]: A list of relevance scores (0-3) in the same order as the results.
+    """
+    with open(PROMPTS_DIR / "llm_judge.md", "r") as f:
+        prompt_template = f.read()
+    prompt = prompt_template.format(query=query, formatted_results=formatted_results)
+    response = client.models.generate_content(model=MODEL, contents=prompt)
+    return json.loads(response.text)
