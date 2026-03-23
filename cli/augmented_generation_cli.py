@@ -1,4 +1,5 @@
 import argparse
+from lib.rag import rag
 
 
 def main():
@@ -17,7 +18,7 @@ def main():
     match args.command:
         case "rag":
             query = args.query
-            # do RAG stuff here
+            rag(query=query)
         case _:
             parser.print_help()
 

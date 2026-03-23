@@ -89,6 +89,15 @@ def llm_judge(query, formatted_results):
     """
     with open(PROMPTS_DIR / "llm_judge.md", "r") as f:
         prompt_template = f.read()
-    prompt = prompt_template.format(query=query, formatted_results=formatted_results)
+    prompt = prompt_template.format(
+        query=query, formatted_results=formatted_results)
     response = client.models.generate_content(model=MODEL, contents=prompt)
     return json.loads(response.text)
+
+
+def answer_question(query, docs):
+    with open(PROMPTS_DIR / "augment_answer.md", "r") as f:
+        prompt_template = f.read()
+    prompt = prompt_template.format(query=query, docs=docs)
+    response = client.models.generate_content(model=MODEL, contents=prompt)
+    return response.text
