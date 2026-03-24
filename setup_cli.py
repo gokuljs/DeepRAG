@@ -19,20 +19,20 @@ ERASE_EOL   = f"{ESC}[K"          # erase to end of line using current bg colour
 CURSOR_BLOCK = f"{ESC}[2 q"
 CURSOR_RESET = f"{ESC}[0 q"
 
-# ── Grove Street / GTA San Andreas green palette ──────────────────────────────
+# ── Color palette ─────────────────────────────────────────────────────────────
 #
 #   bg     #050e07   near-black with a green undertone
-#   ── logo gradient (top → bottom, light leaf → deep forest) ──
-#   row 0  #f0fdf4   pale mint / morning leaf
-#   row 1  #86efac   light leaf green
-#   row 2  #4ade80   Grove Street bright green
-#   row 3  #16a34a   deep grove green
-#   row 4  #052e16   dark forest / shadow
+#   ── logo gradient (top → bottom) ──
+#   row 0  #f0fdf4   pale mint
+#   row 1  #86efac   light green
+#   row 2  #4ade80   bright green
+#   row 3  #16a34a   deep green
+#   row 4  #052e16   dark green
 #   ── text / ui ──
-#   body   #dcfce7   very light green-white
+#   body   #dcfce7   light green-white
 #   dim    #166534   muted green
 #   accent #4ade80   bright green
-#   red    #dc2626   enemy / error
+#   red    #dc2626   error
 # ─────────────────────────────────────────────────────────────────────────────
 
 # OSC 10/11 — terminal fg/bg (iTerm2, kitty, WezTerm; silent no-op elsewhere)
@@ -41,7 +41,7 @@ TERM_FG_SET   = f"{ESC}]10;#dcfce7\007"
 TERM_BG_RESET = f"{ESC}]111\007"
 TERM_FG_RESET = f"{ESC}]110\007"
 
-# OSC 12 — cursor: Grove Street green
+# OSC 12 — cursor colour
 CURSOR_COLOR_SET   = f"{ESC}]12;#4ade80\007"
 CURSOR_COLOR_RESET = f"{ESC}]112\007"
 
@@ -51,14 +51,14 @@ BG = f"{ESC}[48;2;5;14;7m"        # #050e07
 
 # Foreground colours
 C_MINT   = f"{ESC}[38;2;240;253;244m"   # #f0fdf4  pale mint
-C_LEAF   = f"{ESC}[38;2;134;239;172m"   # #86efac  light leaf
-C_GROVE  = f"{ESC}[38;2;74;222;128m"    # #4ade80  Grove Street
+C_LIGHT  = f"{ESC}[38;2;134;239;172m"   # #86efac  light green
+C_GREEN  = f"{ESC}[38;2;74;222;128m"    # #4ade80  bright green
 C_DEEP   = f"{ESC}[38;2;22;163;74m"     # #16a34a  deep green
-C_FOREST = f"{ESC}[38;2;5;46;22m"       # #052e16  dark forest
+C_DARK   = f"{ESC}[38;2;5;46;22m"       # #052e16  dark green
 
 C_BODY  = f"{ESC}[38;2;220;252;231m"    # #dcfce7  body text
 C_DIM   = f"{ESC}[38;2;22;101;52m"      # #166534  muted
-C_RED   = f"{ESC}[38;2;220;38;38m"      # #dc2626  error / enemy
+C_RED   = f"{ESC}[38;2;220;38;38m"      # #dc2626  error
 
 C_BOLD  = f"{ESC}[1m"
 C_RESET = f"{ESC}[0m"
@@ -92,8 +92,7 @@ LOGO_LINES = [
     "██████   ████████  ████████  ██       ██   ██   ██  ██  ██████   ",
 ]
 
-# pale mint → light leaf → grove green → deep green → dark forest
-LOGO_GRADIENT = [C_MINT, C_LEAF, C_GROVE, C_DEEP, C_FOREST]
+LOGO_GRADIENT = [C_MINT, C_LIGHT, C_GREEN, C_DEEP, C_DARK]
 
 INDENT = "    "
 
