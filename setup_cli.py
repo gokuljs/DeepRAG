@@ -94,32 +94,61 @@ LOGO_LINES = [
 
 LOGO_GRADIENT = [C_MINT, C_LIGHT, C_GREEN, C_DEEP, C_DARK]
 
-INDENT = "    "
+
+def _term_width():
+    try:
+        return os.get_terminal_size().columns
+    except OSError:
+        return 80
 
 
 def animate_logo():
     sys.stdout.write(HIDE_CURSOR)
     max_width = max(len(line) for line in LOGO_LINES)
     height    = len(LOGO_LINES)
+    pad       = " " * ((_term_width() - max_width) // 2)
 
-    # Reserve rows with the dark bg so there's no flicker on first frame
     for _ in range(height):
         sys.stdout.write(f"{BG}{ERASE_EOL}{C_RESET}\n")
 
     for col in range(max_width + 1):
-        sys.stdout.write(f"{ESC}[{height}A")   # move cursor back up
+        sys.stdout.write(f"{ESC}[{height}A")
         for i, line in enumerate(LOGO_LINES):
             partial = line[:col]
             fg      = LOGO_GRADIENT[i]
-            # \r   — go to column 0
-            # BG   — set cell background for this row
-            # text — coloured logo slice
-            # ERASE_EOL — fill the rest of the row with BG colour (no fixed width needed)
-            sys.stdout.write(f"\r{BG}{INDENT}{fg}{C_BOLD}{partial}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+            sys.stdout.write(f"\r{BG}{pad}{fg}{C_BOLD}{partial}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
         sys.stdout.flush()
         time.sleep(0.008)
 
     sys.stdout.write(SHOW_CURSOR)
+
+
+# ─── Subtitle ─────────────────────────────────────────────────────────────────
+
+SUBTITLE = [
+    ("Every retrieval algorithm exists because the previous one had a flaw.",  C_BODY,  0.020),
+    ("I traced all of them. Built each one from scratch to understand why.",   C_LIGHT, 0.018),
+    ("No frameworks. No wrappers. This CLI is how you play with the result.",  C_DIM,   0.018),
+]
+
+
+def typewrite(text, fg, delay=0.022):
+    tw  = _term_width()
+    pad = " " * ((tw - len(text)) // 2)
+    for ch in pad + text:
+        sys.stdout.write(f"{BG}{fg}{ch}{C_RESET}")
+        sys.stdout.flush()
+        time.sleep(delay)
+    sys.stdout.write(f"{BG}{ERASE_EOL}{C_RESET}\n")
+    sys.stdout.flush()
+
+
+def animate_subtitle():
+    sys.stdout.write(f"{BG}{ERASE_EOL}{C_RESET}\n")
+    for text, fg, delay in SUBTITLE:
+        typewrite(text, fg, delay)
+    sys.stdout.write(f"{BG}{ERASE_EOL}{C_RESET}\n")
+    sys.stdout.flush()
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
@@ -128,9 +157,11 @@ def main():
     try:
         setup_terminal()
         os.system("cls" if os.name == "nt" else "clear")
-        print()
+        for _ in range(3):
+            sys.stdout.write(f"{BG}{ERASE_EOL}{C_RESET}\n")
+        sys.stdout.flush()
         animate_logo()
-        print()
+        animate_subtitle()
 
         # Stay alive in themed mode until Ctrl+C.
         # Steps will go here as they are built out.
