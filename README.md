@@ -1,10 +1,10 @@
-# Deep RAG
-
 <p align="center">
   <img src="cli/data/Deeprag.png" alt="Deep RAG" />
 </p>
 
-A bare-metal, from-scratch implementation of Retrieval-Augmented Generation. This whole thing started because I wanted to understand how search actually works and why it evolved the way it did. Every retrieval algorithm exists because the previous one had a flaw. So I traced all of them, from keyword matching to full RAG, building each piece from scratch with no frameworks or magic wrappers.
+A bare-metal, from-scratch implementation of Retrieval-Augmented Generation — tracing the full evolution from keyword search to multimodal RAG, with every layer built by hand to understand exactly why it exists.
+
+This whole thing started because I wanted to understand how search actually works and why it evolved the way it did. Every retrieval algorithm exists because the previous one had a flaw. So I traced all of them, from keyword matching to full RAG, building each piece from scratch with no frameworks or magic wrappers.
 
 It starts with keyword search. Just an inverted index, stemming, stopwords, the basics. But plain term matching breaks down when you care about relevance, so you add BM25 scoring to fix that. Then you realize sometimes the words don't match but the meaning does, so you bring in semantic search with embeddings. But now you have two systems that are each good at different things, so you combine them into hybrid search. The scores are on different scales though, so you normalize them, weight them, or use Reciprocal Rank Fusion to merge ranked lists without worrying about score distributions at all.
 
