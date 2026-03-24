@@ -456,37 +456,16 @@ SEARCH_TYPES = [
 ]
 
 
-def step_try_search():
-    _blank()
-    query = _input(
-        f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}your query: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
-    )
-    if not query:
-        sys.stdout.write(
-            f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}skipped{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
-        )
-        sys.stdout.flush()
-        return
-
-    _blank()
-    for key, label, _ in SEARCH_TYPES:
-        sys.stdout.write(f"{BG}  {C_GREEN}{key}{C_RESET}{BG}  {C_BODY}{label}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
-    _blank()
-
-    choice = _input(
-        f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}pick a search type [1-4]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
-    )
-
+def _run_search(query, choice):
     cmd = next((c for k, _, c in SEARCH_TYPES if k == choice), None)
     if not cmd:
         sys.stdout.write(
-            f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}invalid choice, skipping{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+            f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}invalid choice{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
         )
         sys.stdout.flush()
         return
-
     _blank()
-    s = Spinner(f'running search...').start()
+    s = Spinner("running...").start()
     try:
         r = _run(cmd + [query], timeout=120)
         if r.returncode == 0 and r.stdout.strip():
@@ -501,6 +480,66 @@ def step_try_search():
                 _print_raw(f"{C_DIM}{r.stderr.strip()[:300]}{C_RESET}")
     except subprocess.TimeoutExpired:
         s.fail("timed out")
+
+
+def _show_search_menu():
+    _blank()
+    for key, label, _ in SEARCH_TYPES:
+        sys.stdout.write(f"{BG}  {C_GREEN}{key}{C_RESET}{BG}  {C_BODY}{label}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+    _blank()
+
+
+def step_try_search():
+    _blank()
+    query = _input(
+        f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}your query (enter to skip): {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+    )
+    if not query:
+        sys.stdout.write(
+            f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}skipped{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+        )
+        sys.stdout.flush()
+        return
+
+    _show_search_menu()
+    choice = _input(
+        f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}pick a search type [1-4]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+    )
+    _run_search(query, choice)
+
+    # Loop — try again, change type, or done
+    while True:
+        _blank()
+        sys.stdout.write(f"{BG}  {C_GREEN}n{C_RESET}{BG}  {C_BODY}new query{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+        sys.stdout.write(f"{BG}  {C_GREEN}r{C_RESET}{BG}  {C_BODY}run again with different search type{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+        sys.stdout.write(f"{BG}  {C_GREEN}q{C_RESET}{BG}  {C_BODY}done{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+        _blank()
+
+        action = _input(
+            f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}what next? [n/r/q]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+        )
+
+        if action == "n":
+            query = _input(
+                f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}your query: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+            )
+            if not query:
+                continue
+            _show_search_menu()
+            choice = _input(
+                f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}pick a search type [1-4]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+            )
+            _run_search(query, choice)
+
+        elif action == "r":
+            _show_search_menu()
+            choice = _input(
+                f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}pick a search type [1-4]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+            )
+            _run_search(query, choice)
+
+        else:
+            break
 
 
 def run_install():
