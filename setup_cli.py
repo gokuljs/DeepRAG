@@ -132,13 +132,16 @@ def main():
         animate_logo()
         print()
 
+        # Stay alive in themed mode until Ctrl+C.
+        # Steps will go here as they are built out.
+        while True:
+            time.sleep(0.5)
+
     except KeyboardInterrupt:
         sys.stdout.write(SHOW_CURSOR)
         restore_terminal()
         print()
         sys.exit(0)
-    finally:
-        restore_terminal()
 
 
 if __name__ == "__main__":
