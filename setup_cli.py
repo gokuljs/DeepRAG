@@ -346,20 +346,20 @@ def step_api_key():
     if existing:
         masked = existing[:8] + "···" + existing[-4:]
         sys.stdout.write(
-            f"\r{BG}  {C_GREEN}✓{C_RESET}{BG}  {C_BODY}Gemini API key already set  ({masked}){C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+            f"\r{BG}  {C_GREEN}✓{C_RESET}{BG}  {C_BODY}api key already set  ({masked}){C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
         )
         sys.stdout.flush()
         return True
 
     sys.stdout.write(
-        f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}Gemini API key (Enter to skip): {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+        f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}gemini api key  (enter to skip): {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
     )
     sys.stdout.flush()
     key = input().strip()
 
     if not key:
         sys.stdout.write(
-            f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}Skipped — add GEMINI_API_KEY to .env later{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+            f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}skipped — add GEMINI_API_KEY to .env later{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
         )
         sys.stdout.flush()
         return False
@@ -390,10 +390,10 @@ def step_build_bm25():
         )
         sys.stdout.flush()
         return True
-    s = Spinner("building BM25 index...").start()
+    s = Spinner("building inverted index for BM25 search...").start()
     r = _run(["uv", "run", "cli/keyword_search_cli.py", "build"])
     if r.returncode == 0:
-        s.done("BM25 index built")
+        s.done("inverted index built")
         return True
     s.fail("BM25 build failed")
     if r.stderr:
@@ -466,7 +466,46 @@ def run_install():
 
     _section("smoke test")
     step_demo_search()
+
+    _show_cache_summary()
     return True
+
+
+def _show_cache_summary():
+    cache_dir = _cache()
+    _blank()
+    sys.stdout.write(f"{BG}  {C_GREEN}{C_BOLD}what got built{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+    sys.stdout.write(f"{BG}  {C_DIM}{'─' * 44}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+    _blank()
+
+    files = [
+        ("index.pkl",             "inverted index for BM25 search"),
+        ("term_frequency.pkl",    "term frequencies across corpus"),
+        ("doc_lengths.pkl",       "document length table"),
+        ("docmap.pkl",            "doc id → metadata mapping"),
+        ("chunk_embeddings.npy",  "semantic embeddings (vectors)"),
+        ("chunk_metadata.json",   "chunk text + source metadata"),
+    ]
+
+    for fname, desc in files:
+        path = _cache(fname)
+        if os.path.exists(path):
+            size = os.path.getsize(path)
+            size_str = f"{size / 1024:.0f} KB" if size < 1024 * 1024 else f"{size / 1024 / 1024:.1f} MB"
+            sys.stdout.write(
+                f"{BG}  {C_GREEN}✓{C_RESET}{BG}  {C_BODY}{fname:<28}{C_RESET}{BG}{C_DIM}{desc}  ({size_str}){C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+            )
+        else:
+            sys.stdout.write(
+                f"{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}{fname:<28}{desc}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+            )
+
+    _blank()
+    sys.stdout.write(
+        f"{BG}  {C_DIM}cache:  {cache_dir}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+    )
+    _blank()
+    sys.stdout.flush()
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
