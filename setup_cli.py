@@ -21,7 +21,7 @@ CURSOR_RESET = f"{ESC}[0 q"
 
 # ── Color palette ─────────────────────────────────────────────────────────────
 #
-#   bg     #050e07   near-black with a green undertone
+#   bg     #0a0a0a   soft black
 #   ── logo gradient (top → bottom) ──
 #   row 0  #f0fdf4   pale mint
 #   row 1  #86efac   light green
@@ -36,7 +36,7 @@ CURSOR_RESET = f"{ESC}[0 q"
 # ─────────────────────────────────────────────────────────────────────────────
 
 # OSC 10/11 — terminal fg/bg (iTerm2, kitty, WezTerm; silent no-op elsewhere)
-TERM_BG_SET   = f"{ESC}]11;#050e07\007"
+TERM_BG_SET   = f"{ESC}]11;#0a0a0a\007"
 TERM_FG_SET   = f"{ESC}]10;#dcfce7\007"
 TERM_BG_RESET = f"{ESC}]111\007"
 TERM_FG_RESET = f"{ESC}]110\007"
@@ -47,21 +47,30 @@ CURSOR_COLOR_RESET = f"{ESC}]112\007"
 
 # Cell background — every printed line carries its own dark canvas so the
 # theme is consistent across every terminal regardless of user's bg colour.
-BG = f"{ESC}[48;2;5;14;7m"        # #050e07
+BG = f"{ESC}[48;2;10;10;10m"        # #0a0a0a
 
-# Foreground colours
-C_MINT   = f"{ESC}[38;2;240;253;244m"   # #f0fdf4  pale mint
-C_LIGHT  = f"{ESC}[38;2;134;239;172m"   # #86efac  light green
-C_GREEN  = f"{ESC}[38;2;74;222;128m"    # #4ade80  bright green
-C_DEEP   = f"{ESC}[38;2;22;163;74m"     # #16a34a  deep green
-C_DARK   = f"{ESC}[38;2;5;46;22m"       # #052e16  dark green
+# Logo gradient — white to dark (top → bottom)
+C_W1 = f"{ESC}[38;2;255;255;255m"   # #ffffff  pure white
+C_W2 = f"{ESC}[38;2;192;192;192m"   # #c0c0c0  light gray
+C_W3 = f"{ESC}[38;2;128;128;128m"   # #808080  mid gray
+C_W4 = f"{ESC}[38;2;64;64;64m"      # #404040  dark gray
+C_W5 = f"{ESC}[38;2;26;26;26m"      # #1a1a1a  near black
 
-C_BODY  = f"{ESC}[38;2;220;252;231m"    # #dcfce7  body text
-C_DIM   = f"{ESC}[38;2;22;101;52m"      # #166534  muted
-C_RED   = f"{ESC}[38;2;220;38;38m"      # #dc2626  error
+# UI colours — green accents stay
+C_GREEN = f"{ESC}[38;2;74;222;128m"    # #4ade80  bright green (spinners, ✓, prompts)
+C_DIM   = f"{ESC}[38;2;100;100;100m"   # #646464  muted gray
+C_BODY  = f"{ESC}[38;2;220;220;220m"   # #dcdcdc  body text — light gray
+C_RED   = f"{ESC}[38;2;220;38;38m"     # #dc2626  error
 
-C_BOLD  = f"{ESC}[1m"
-C_RESET = f"{ESC}[0m"
+# Keep aliases so nothing else breaks
+C_MINT  = C_W1
+C_LIGHT = C_W2
+C_DEEP  = C_W4
+C_DARK  = C_W5
+
+C_BOLD   = f"{ESC}[1m"
+C_ITALIC = f"{ESC}[3m"
+C_RESET  = f"{ESC}[0m"
 
 # ─── Terminal setup / teardown ────────────────────────────────────────────────
 
@@ -92,7 +101,7 @@ LOGO_LINES = [
     "██████   ████████  ████████  ██       ██   ██   ██  ██  ██████   ",
 ]
 
-LOGO_GRADIENT = [C_MINT, C_LIGHT, C_GREEN, C_DEEP, C_DARK]
+LOGO_GRADIENT = [C_W1, C_W2, C_W3, C_W4, C_W5]
 
 
 def _term_width():
@@ -126,9 +135,9 @@ def animate_logo():
 # ─── Subtitle ─────────────────────────────────────────────────────────────────
 
 SUBTITLE = [
-    ("Every retrieval algorithm exists because the previous one had a flaw.",  C_BODY,  0.020),
-    ("I traced all of them. Built each one from scratch to understand why.",   C_LIGHT, 0.018),
-    ("No frameworks. No wrappers. This CLI is how you play with the result.",  C_DIM,   0.018),
+    ("Every retrieval algorithm exists because the previous one had a flaw.",  C_DIM, 0.020),
+    ("I traced all of them. Built each one from scratch to understand why.",   C_DIM, 0.018),
+    ("No frameworks. No wrappers. This CLI is how you play with the result.",  C_DIM, 0.018),
 ]
 
 
@@ -136,7 +145,7 @@ def typewrite(text, fg, delay=0.022):
     tw  = _term_width()
     pad = " " * ((tw - len(text)) // 2)
     for ch in pad + text:
-        sys.stdout.write(f"{BG}{fg}{ch}{C_RESET}")
+        sys.stdout.write(f"{BG}{C_ITALIC}{fg}{ch}{C_RESET}")
         sys.stdout.flush()
         time.sleep(delay)
     sys.stdout.write(f"{BG}{ERASE_EOL}{C_RESET}\n")
