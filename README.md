@@ -1,16 +1,16 @@
 # Deep RAG
 
-A bare-metal, from-scratch implementation of Retrieval-Augmented Generation. This whole thing started as an exploration. I wanted to see how far you can go building RAG from the ground up, no frameworks, no magic wrappers, just the raw pieces stitched together one at a time.
+A bare-metal, from-scratch implementation of Retrieval-Augmented Generation. This whole thing started because I wanted to understand how search actually works and why it evolved the way it did. Every retrieval algorithm exists because the previous one had a flaw. So I traced all of them, from keyword matching to full RAG, building each piece from scratch with no frameworks or magic wrappers.
 
-It starts simple: keyword search. Just an inverted index, stemming, stopwords, the basics. Then you layer on BM25 scoring because plain term matching doesn't cut it when you care about relevance. Then you bring in semantic search with embeddings because sometimes the words don't match but the meaning does. Then you ask: why not both? So you do hybrid search. Combine BM25 and semantic, let them complement each other. But the scores are on different scales, so you normalize, you weight them, you try Reciprocal Rank Fusion to merge ranked lists without worrying about score distributions at all.
+It starts with keyword search. Just an inverted index, stemming, stopwords, the basics. But plain term matching breaks down when you care about relevance, so you add BM25 scoring to fix that. Then you realize sometimes the words don't match but the meaning does, so you bring in semantic search with embeddings. But now you have two systems that are each good at different things, so you combine them into hybrid search. The scores are on different scales though, so you normalize them, weight them, or use Reciprocal Rank Fusion to merge ranked lists without worrying about score distributions at all.
 
-And then reranking. Because your first-pass retrieval is fast but rough. You throw a cross-encoder at the top results, or you ask an LLM to judge relevance one-by-one, or you batch the whole thing and let the model sort it out. Each approach has tradeoffs. Speed vs accuracy, cost vs quality. And you can mix and match.
+But your first-pass retrieval is still rough, so you add reranking. You throw a cross-encoder at the top results, or you ask an LLM to judge relevance one-by-one, or you batch the whole thing and let the model sort it out. Each fix introduces its own tradeoffs. Speed vs accuracy, cost vs quality. So you make them all available and mix and match.
 
-Then you go multimodal. Images. You use CLIP to project images and text into the same embedding space so you can search your document corpus with a picture. Query enhancement comes in too. Spelling correction, query rewriting, query expansion, all powered by an LLM so your retrieval doesn't fall apart because someone typed "scifi" instead of "science fiction".
+Then you realize text isn't everything, so you go multimodal. You use CLIP to project images and text into the same embedding space so you can search your document corpus with a picture. And because your retrieval falls apart when someone types "scifi" instead of "science fiction", you add query enhancement. Spelling correction, query rewriting, query expansion, all powered by an LLM.
 
-Finally, the generation side. You retrieve, you augment, you generate. Summaries, citations, Q&A, the full RAG pipeline, end to end. And you evaluate it: precision, recall, F1 against a golden dataset, plus an LLM judge scoring relevance 0-3.
+Finally you close the loop with generation. You retrieve, you augment, you generate. Summaries, citations, Q&A, the full RAG pipeline end to end. And then you evaluate it: precision, recall, F1 against a golden dataset, plus an LLM judge scoring relevance 0-3.
 
-Everything runs on a movie corpus of 5000+ films. Every piece is its own module, its own CLI, testable in isolation. You can trace the evolution from a basic keyword lookup all the way to a full multimodal RAG system with reranking and evaluation.
+You can trace the entire evolution from a basic keyword lookup all the way to a full multimodal RAG system with reranking and evaluation, and at each step you can see exactly what problem the next layer solves.
 
 ---
 
