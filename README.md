@@ -46,28 +46,33 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 brew install uv
 ```
 
-### Setup
+### Quick Setup (Recommended)
 
 ```bash
-# Clone the repo
 git clone <repo-url>
 cd Advanced-rag
+uv run cli/setup_cli.py
+```
 
+The setup wizard handles everything interactively. It installs dependencies, asks for your Gemini API key, builds the search indexes, embeds document chunks, and runs a demo search to make sure it all works.
+
+### Manual Setup
+
+If you prefer doing it yourself:
+
+```bash
 # Install all dependencies
 uv sync
+
+# Create .env with your Gemini API key (get one at https://aistudio.google.com/apikey)
+echo "GEMINI_API_KEY=your_key_here" > .env
+
+# Build the BM25 inverted index
+uv run cli/keyword_search_cli.py build
+
+# Embed document chunks (downloads the model on first run)
+uv run cli/semantic_search-cli.py embedchunks
 ```
-
-This pulls in everything: `sentence-transformers`, `google-genai`, `nltk`, `numpy`, `pillow`, etc.
-
-### Environment Variables
-
-Create a `.env` file in the project root:
-
-```
-GEMINI_API_KEY=your_gemini_api_key_here
-```
-
-You need a [Google Gemini API key](https://aistudio.google.com/apikey) for query enhancement, reranking with LLM, RAG generation, and evaluation.
 
 ### Models
 
@@ -78,30 +83,6 @@ Models are downloaded automatically on first use, no manual setup needed:
 - **`cross-encoder/ms-marco-TinyBERT-L2-v2`** for reranking
 
 They get cached by HuggingFace after the first download.
-
----
-
-## Getting Started
-
-### Build the Index (Do This First)
-
-Before any searching works, you need to build the BM25 inverted index:
-
-```bash
-uv run cli/keyword_search_cli.py build
-```
-
-This processes the movie corpus, stems terms, filters stopwords, and caches the index to disk.
-
-### Verify Everything Is Working
-
-```bash
-# Check the embedding model loads
-uv run cli/semantic_search-cli.py verifymodel
-
-# Check embeddings are cached
-uv run cli/semantic_search-cli.py verifyembeddings
-```
 
 ---
 
