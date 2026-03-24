@@ -2,6 +2,7 @@ import os
 import json
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 from numpy import promote_types
 from .search_utils import PROMPTS_DIR
 
@@ -125,3 +126,17 @@ def qa_llm(query, documents):
     prompt = prompt_template.format(query=query, context=documents)
     response = client.models.generate_content(model=MODEL, contents=prompt)
     return response.text
+
+
+def describe_image(image_bytes, mime_type, query):
+    with open(PROMPTS_DIR / "describe_image.md", "r") as f:
+        system_prompt = f.read()
+
+    parts = [
+        system_prompt,
+        types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+        query.strip(),
+    ]
+
+    response = client.models.generate_content(model=MODEL, contents=parts)
+    return response
