@@ -123,6 +123,22 @@ def _blank():
     sys.stdout.flush()
 
 
+# Global hint bar — paused around every input() so it doesn't interfere
+_hint = None
+
+
+def _input(prompt_str):
+    """Write prompt then read input, pausing hint bar so it doesn't clobber."""
+    if _hint:
+        _hint.pause()
+    sys.stdout.write(prompt_str)
+    sys.stdout.flush()
+    val = input()
+    if _hint:
+        _hint.resume()
+    return val.strip()
+
+
 def animate_logo():
     sys.stdout.write(HIDE_CURSOR)
     max_width = max(len(line) for line in LOGO_LINES)
@@ -199,6 +215,7 @@ def _print_raw(text):
 class HintBar:
     def __init__(self):
         self._stop   = threading.Event()
+        self._paused = threading.Event()
         self._thread = None
 
     def _draw(self):
@@ -210,22 +227,34 @@ class HintBar:
         )
         sys.stdout.flush()
 
+    def _clear(self):
+        rows = _term_size().lines
+        sys.stdout.write(f"\0337\033[{rows};1H{C_RESET}{ERASE_EOL}\0338")
+        sys.stdout.flush()
+
     def _loop(self):
         while not self._stop.is_set():
-            self._draw()
+            if not self._paused.is_set():
+                self._draw()
             time.sleep(1)
 
     def start(self):
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
 
+    def pause(self):
+        self._paused.set()
+        self._clear()
+
+    def resume(self):
+        self._paused.clear()
+        self._draw()
+
     def stop(self):
         self._stop.set()
         if self._thread:
             self._thread.join()
-        rows = _term_size().lines
-        sys.stdout.write(f"\0337\033[{rows};1H{C_RESET}{ERASE_EOL}\0338")
-        sys.stdout.flush()
+        self._clear()
 
 
 # ─── Spinner ──────────────────────────────────────────────────────────────────
@@ -289,11 +318,9 @@ def _section(title):
     _blank()
 
 def _prompt(question):
-    sys.stdout.write(
+    return _input(
         f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}{question}{C_RESET}{BG}{ERASE_EOL}{C_RESET}"
-    )
-    sys.stdout.flush()
-    return input().strip().lower()
+    ).lower()
 
 
 # ─── Install steps ────────────────────────────────────────────────────────────
@@ -351,11 +378,9 @@ def step_api_key():
         sys.stdout.flush()
         return True
 
-    sys.stdout.write(
+    key = _input(
         f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}gemini api key  (enter to skip): {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
     )
-    sys.stdout.flush()
-    key = input().strip()
 
     if not key:
         sys.stdout.write(
@@ -433,11 +458,9 @@ SEARCH_TYPES = [
 
 def step_try_search():
     _blank()
-    sys.stdout.write(
+    query = _input(
         f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}your query: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
     )
-    sys.stdout.flush()
-    query = input().strip()
     if not query:
         sys.stdout.write(
             f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}skipped{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
@@ -450,11 +473,9 @@ def step_try_search():
         sys.stdout.write(f"{BG}  {C_GREEN}{key}{C_RESET}{BG}  {C_BODY}{label}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
     _blank()
 
-    sys.stdout.write(
+    choice = _input(
         f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}pick a search type [1-4]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
     )
-    sys.stdout.flush()
-    choice = input().strip()
 
     cmd = next((c for k, _, c in SEARCH_TYPES if k == choice), None)
     if not cmd:
@@ -547,14 +568,15 @@ def _show_cache_summary():
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
-    hint = HintBar()
+    global _hint
+    _hint = HintBar()
     try:
         setup_terminal()
         os.system("cls" if IS_WIN else "clear")
         for _ in range(3):
             sys.stdout.write(f"{BG}{ERASE_EOL}{C_RESET}\n")
         sys.stdout.flush()
-        hint.start()
+        _hint.start()
         animate_logo()
         animate_subtitle()
         run_install()
@@ -563,7 +585,7 @@ def main():
             time.sleep(0.5)
 
     except KeyboardInterrupt:
-        hint.stop()
+        _hint.stop()
         sys.stdout.write(SHOW_CURSOR)
         restore_terminal()
         print()
