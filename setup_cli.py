@@ -172,23 +172,81 @@ SUBTITLE = [
 ]
 
 
+_skip_anim = threading.Event()
+
+
+def _watch_for_enter(stop: threading.Event):
+    """Poll stdin every 50 ms; set _skip_anim when any key is pressed."""
+    try:
+        import select as _sel
+        while not stop.is_set():
+            r, _, _ = _sel.select([sys.stdin], [], [], 0.05)
+            if r:
+                os.read(sys.stdin.fileno(), 16)   # drain the buffer
+                _skip_anim.set()
+                return
+    except Exception:
+        pass
+
+
 def typewrite(text, fg, delay=0.022):
-    tw  = _term_width()
-    pad = " " * ((tw - len(text)) // 2)
-    for ch in pad + text:
+    tw   = _term_width()
+    pad  = " " * ((tw - len(text)) // 2)
+    full = pad + text
+
+    # Already skipped — print instantly, no animation
+    if _skip_anim.is_set():
+        sys.stdout.write(f"\r{BG}{C_ITALIC}{fg}{full}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+        sys.stdout.flush()
+        return
+
+    for idx, ch in enumerate(full):
+        if _skip_anim.is_set():
+            # Print the rest of this line from the start (clean, no leftover cursor drift)
+            sys.stdout.write(f"\r{BG}{C_ITALIC}{fg}{full}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+            sys.stdout.flush()
+            return
         sys.stdout.write(f"{BG}{C_ITALIC}{fg}{ch}{C_RESET}")
         sys.stdout.flush()
         time.sleep(delay)
+
     sys.stdout.write(f"{BG}{ERASE_EOL}{C_RESET}\n")
     sys.stdout.flush()
 
 
 def animate_subtitle():
+    _skip_anim.clear()
+
+    # Disable terminal echo so Enter doesn't print a visible newline mid-animation
+    _old_tty = None
+    try:
+        import termios, tty as _tty
+        fd = sys.stdin.fileno()
+        _old_tty = termios.tcgetattr(fd)
+        _tty.setcbreak(fd)          # char-by-char, no echo, signals (Ctrl-C) still work
+    except Exception:
+        pass
+
+    stop = threading.Event()
+    watcher = threading.Thread(target=_watch_for_enter, args=(stop,), daemon=True)
+    watcher.start()
+
     sys.stdout.write(f"{BG}{ERASE_EOL}{C_RESET}\n")
     for text, fg, delay in SUBTITLE:
         typewrite(text, fg, delay)
     sys.stdout.write(f"{BG}{ERASE_EOL}{C_RESET}\n")
     sys.stdout.flush()
+
+    stop.set()
+    _skip_anim.clear()
+
+    # Restore terminal settings
+    if _old_tty is not None:
+        try:
+            import termios
+            termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, _old_tty)
+        except Exception:
+            pass
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -448,24 +506,82 @@ def step_build_semantic():
     return False
 
 
+# ── Search types — all 11 modes across 4 categories ──────────────────────────
+
 SEARCH_TYPES = [
-    ("1", "keyword     BM25 inverted index search",         ["uv", "run", "cli/keyword_search_cli.py",        "bm25search"]),
-    ("2", "semantic    vector similarity search",            ["uv", "run", "cli/semantic_search-cli.py",       "search"]),
-    ("3", "hybrid      BM25 + semantic, RRF reranked",       ["uv", "run", "cli/hybrid_search_cli.py",         "rrfsearch"]),
-    ("4", "rag         retrieve + generate answer with LLM", ["uv", "run", "cli/augmented_generation_cli.py",  "rag"]),
+    # keyword
+    ("1",  "bm25              inverted index, BM25 scoring",             ["uv", "run", "cli/keyword_search_cli.py",       "bm25search"]),
+    ("2",  "tfidf             classic TF-IDF keyword search",            ["uv", "run", "cli/keyword_search_cli.py",       "tfidf"]),
+    # semantic
+    ("3",  "semantic          vector similarity search",                 ["uv", "run", "cli/semantic_search-cli.py",      "search"]),
+    ("4",  "chunked semantic  search over sentence-level chunks",        ["uv", "run", "cli/semantic_search-cli.py",      "chunkedsemanticsearch"]),
+    # hybrid
+    ("5",  "hybrid rrf        BM25 + semantic, reciprocal rank fusion",  ["uv", "run", "cli/hybrid_search_cli.py",        "rrfsearch"]),
+    ("6",  "hybrid weighted   BM25 + semantic, weighted sum",            ["uv", "run", "cli/hybrid_search_cli.py",        "ws"]),
+    ("7",  "hybrid norm       BM25 + semantic, normalised scores",       ["uv", "run", "cli/hybrid_search_cli.py",        "norm_passed"]),
+    # rag  (all require GEMINI_API_KEY)
+    ("8",  "rag               retrieve + generate a direct answer",      ["uv", "run", "cli/augmented_generation_cli.py", "rag"]),
+    ("9",  "summarize         retrieve + summarize results",             ["uv", "run", "cli/augmented_generation_cli.py", "summarize"]),
+    ("10", "citations         retrieve + answer with inline citations",  ["uv", "run", "cli/augmented_generation_cli.py", "citations"]),
+    ("11", "q&a               retrieve + answer a specific question",    ["uv", "run", "cli/augmented_generation_cli.py", "question"]),
 ]
+
+SEARCH_GROUPS = [
+    ("keyword",  ["1", "2"]),
+    ("semantic", ["3", "4"]),
+    ("hybrid",   ["5", "6", "7"]),
+    ("rag  ✦ requires gemini api key", ["8", "9", "10", "11"]),
+]
+
+RAG_CHOICES = {"8", "9", "10", "11"}
+
+
+def _gemini_key_valid():
+    env_path = os.path.join(_project_dir(), ".env")
+    if os.path.exists(env_path):
+        with open(env_path) as f:
+            for line in f:
+                if line.startswith("GEMINI_API_KEY="):
+                    val = line.strip().split("=", 1)[1]
+                    return bool(val and val != "your_gemini_api_key_here")
+    return False
+
+
+def _show_search_menu():
+    _blank()
+    for group_name, keys in SEARCH_GROUPS:
+        sys.stdout.write(f"{BG}  {C_DIM}{group_name}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+        for key, label, _ in SEARCH_TYPES:
+            if key in keys:
+                sys.stdout.write(
+                    f"{BG}  {C_GREEN}{key:>2}{C_RESET}{BG}  {C_BODY}{label}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+                )
+        _blank()
+    sys.stdout.flush()
 
 
 def _run_search(query, choice):
     cmd = next((c for k, _, c in SEARCH_TYPES if k == choice), None)
     if not cmd:
         sys.stdout.write(
-            f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}invalid choice{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+            f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}invalid choice — enter a number from the menu{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
         )
         sys.stdout.flush()
         return
+
+    # Block RAG calls early if no valid API key
+    if choice in RAG_CHOICES and not _gemini_key_valid():
+        sys.stdout.write(
+            f"\r{BG}  {C_RED}✗{C_RESET}{BG}  {C_BODY}Gemini API key not set or invalid{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+        )
+        sys.stdout.write(
+            f"{BG}    {C_DIM}add a real key to .env:  GEMINI_API_KEY=your_key{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+        )
+        sys.stdout.flush()
+        return
+
     _blank()
-    s = Spinner("running...").start()
+    s = Spinner(f"running {next(l for k,l,_ in SEARCH_TYPES if k==choice).split()[0]}...").start()
     try:
         r = _run(cmd + [query], timeout=120)
         if r.returncode == 0 and r.stdout.strip():
@@ -475,18 +591,22 @@ def _run_search(query, choice):
                 sys.stdout.write(f"{BG}    {C_BODY}{line}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
             _blank()
         else:
-            s.fail("no results")
-            if r.stderr:
-                _print_raw(f"{C_DIM}{r.stderr.strip()[:300]}{C_RESET}")
+            stderr = r.stderr.strip() if r.stderr else ""
+            if "GEMINI_API_KEY" in stderr or "API_KEY" in stderr:
+                s.fail("Gemini API key is set but was rejected by the API")
+            elif "ProxyError" in stderr or "403" in stderr:
+                s.fail("network error — model needs internet access on first run")
+            elif r.returncode != 0:
+                last_err = next(
+                    (l for l in reversed(stderr.split("\n")) if l.strip()), ""
+                )
+                s.fail(f"exited with code {r.returncode}")
+                if last_err:
+                    _print_raw(f"{C_DIM}{last_err[:200]}{C_RESET}")
+            else:
+                s.fail("no results — try a different query or search type")
     except subprocess.TimeoutExpired:
-        s.fail("timed out")
-
-
-def _show_search_menu():
-    _blank()
-    for key, label, _ in SEARCH_TYPES:
-        sys.stdout.write(f"{BG}  {C_GREEN}{key}{C_RESET}{BG}  {C_BODY}{label}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
-    _blank()
+        s.fail("timed out — try a simpler query")
 
 
 def step_try_search():
@@ -503,15 +623,14 @@ def step_try_search():
 
     _show_search_menu()
     choice = _input(
-        f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}pick a search type [1-4]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+        f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}pick [1-11]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
     )
     _run_search(query, choice)
 
-    # Loop — try again, change type, or done
     while True:
         _blank()
         sys.stdout.write(f"{BG}  {C_GREEN}n{C_RESET}{BG}  {C_BODY}new query{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
-        sys.stdout.write(f"{BG}  {C_GREEN}r{C_RESET}{BG}  {C_BODY}run again with different search type{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+        sys.stdout.write(f"{BG}  {C_GREEN}r{C_RESET}{BG}  {C_BODY}same query, different search type{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
         sys.stdout.write(f"{BG}  {C_GREEN}q{C_RESET}{BG}  {C_BODY}done{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
         _blank()
 
@@ -519,27 +638,38 @@ def step_try_search():
             f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}what next? [n/r/q]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
         )
 
-        if action == "n":
-            query = _input(
+        if action == "q":
+            break
+
+        elif action == "n":
+            new_query = _input(
                 f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}your query: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
             )
-            if not query:
+            if not new_query:
+                sys.stdout.write(
+                    f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}query can't be empty{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+                )
+                sys.stdout.flush()
                 continue
+            query = new_query
             _show_search_menu()
             choice = _input(
-                f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}pick a search type [1-4]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+                f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}pick [1-11]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
             )
             _run_search(query, choice)
 
         elif action == "r":
             _show_search_menu()
             choice = _input(
-                f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}pick a search type [1-4]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+                f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}pick [1-11]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
             )
             _run_search(query, choice)
 
         else:
-            break
+            sys.stdout.write(
+                f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}enter n, r, or q{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+            )
+            sys.stdout.flush()
 
 
 def run_install():
