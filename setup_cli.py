@@ -19,50 +19,48 @@ ERASE_EOL   = f"{ESC}[K"          # erase to end of line using current bg colour
 CURSOR_BLOCK = f"{ESC}[2 q"
 CURSOR_RESET = f"{ESC}[0 q"
 
-# ── Color palette ─────────────────────────────────────────────────────────────
+# ── Cream / Orange palette ────────────────────────────────────────────────────
 #
 #   bg     #0a0a0a   soft black
 #   ── logo gradient (top → bottom) ──
-#   row 0  #f0fdf4   pale mint
-#   row 1  #86efac   light green
-#   row 2  #4ade80   bright green
-#   row 3  #16a34a   deep green
-#   row 4  #052e16   dark green
+#   row 0  #faf3e1   near-white cream
+#   row 1  #f5e7c6   warm linen
+#   row 2  #ff6d1f   bright orange
+#   row 3  #8b3510   burnt sienna (interpolated)
+#   row 4  #222222   near-black dark gray
 #   ── text / ui ──
-#   body   #dcfce7   light green-white
-#   dim    #166534   muted green
-#   accent #4ade80   bright green
-#   red    #dc2626   error
+#   body   #faf3e1   warm cream
+#   dim    #8b3510   burnt sienna muted
+#   accent #ff6d1f   bright orange
+#   red    #ff6d1f   same
 # ─────────────────────────────────────────────────────────────────────────────
 
-# OSC 10/11 — terminal fg/bg (iTerm2, kitty, WezTerm; silent no-op elsewhere)
+# OSC 10/11
 TERM_BG_SET   = f"{ESC}]11;#0a0a0a\007"
-TERM_FG_SET   = f"{ESC}]10;#dcfce7\007"
+TERM_FG_SET   = f"{ESC}]10;#faf3e1\007"
 TERM_BG_RESET = f"{ESC}]111\007"
 TERM_FG_RESET = f"{ESC}]110\007"
 
-# OSC 12 — cursor colour
-CURSOR_COLOR_SET   = f"{ESC}]12;#4ade80\007"
+# OSC 12 — cursor: orange
+CURSOR_COLOR_SET   = f"{ESC}]12;#ff6d1f\007"
 CURSOR_COLOR_RESET = f"{ESC}]112\007"
 
-# Cell background — every printed line carries its own dark canvas so the
-# theme is consistent across every terminal regardless of user's bg colour.
-BG = f"{ESC}[48;2;10;10;10m"        # #0a0a0a
+BG = f"{ESC}[48;2;10;10;10m"          # #0a0a0a
 
-# Logo gradient — white to dark (top → bottom)
-C_W1 = f"{ESC}[38;2;255;255;255m"   # #ffffff  pure white
-C_W2 = f"{ESC}[38;2;192;192;192m"   # #c0c0c0  light gray
-C_W3 = f"{ESC}[38;2;128;128;128m"   # #808080  mid gray
-C_W4 = f"{ESC}[38;2;64;64;64m"      # #404040  dark gray
-C_W5 = f"{ESC}[38;2;26;26;26m"      # #1a1a1a  near black
+# Logo gradient — white → cream → cream-orange → light orange → dark orange
+C_W1 = f"{ESC}[38;2;253;248;238m"    # #fdf8ee  near white
+C_W2 = f"{ESC}[38;2;245;231;198m"    # #f5e7c6  warm cream
+C_W3 = f"{ESC}[38;2;240;198;130m"    # #f0c682  creamy orange
+C_W4 = f"{ESC}[38;2;232;148;64m"     # #e89440  light orange
+C_W5 = f"{ESC}[38;2;192;90;24m"      # #c05a18  darker orange
 
-# UI colours — green accents stay
-C_GREEN = f"{ESC}[38;2;74;222;128m"    # #4ade80  bright green (spinners, ✓, prompts)
-C_DIM   = f"{ESC}[38;2;100;100;100m"   # #646464  muted gray
-C_BODY  = f"{ESC}[38;2;220;220;220m"   # #dcdcdc  body text — light gray
-C_RED   = f"{ESC}[38;2;220;38;38m"     # #dc2626  error
+# UI colours
+C_GREEN = f"{ESC}[38;2;255;109;31m"   # #ff6d1f  orange accent
+C_DIM   = f"{ESC}[38;2;139;53;16m"    # #8b3510  burnt sienna muted
+C_BODY  = f"{ESC}[38;2;250;243;225m"  # #faf3e1  warm cream body
+C_RED   = f"{ESC}[38;2;255;109;31m"   # #ff6d1f  orange for errors
 
-# Keep aliases so nothing else breaks
+# Aliases
 C_MINT  = C_W1
 C_LIGHT = C_W2
 C_DEEP  = C_W4
@@ -101,7 +99,7 @@ LOGO_LINES = [
     "██████   ████████  ████████  ██       ██   ██   ██  ██  ██████   ",
 ]
 
-LOGO_GRADIENT = [C_W1, C_W2, C_W3, C_W4, C_W5]
+LOGO_GRADIENT = [C_W1, C_W2, C_W3, C_W4, C_W5]   # gold → fire → ember
 
 
 def _term_width():
@@ -134,10 +132,13 @@ def animate_logo():
 
 # ─── Subtitle ─────────────────────────────────────────────────────────────────
 
+# Creamy orange — sits between warm cream and light orange, soft and warm
+C_SUBTITLE = f"{ESC}[38;2;238;185;110m"   # #eeb96e  creamy orange
+
 SUBTITLE = [
-    ("Every retrieval algorithm exists because the previous one had a flaw.",  C_DIM, 0.020),
-    ("I traced all of them. Built each one from scratch to understand why.",   C_DIM, 0.018),
-    ("No frameworks. No wrappers. This CLI is how you play with the result.",  C_DIM, 0.018),
+    ("Every retrieval algorithm exists because the previous one had a flaw.",  C_SUBTITLE, 0.020),
+    ("I traced all of them. Built each one from scratch to understand why.",   C_SUBTITLE, 0.018),
+    ("No frameworks. No wrappers. This CLI is how you play with the result.",  C_SUBTITLE, 0.018),
 ]
 
 
