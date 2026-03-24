@@ -7,7 +7,9 @@ Usage::
 """
 
 import os
+import subprocess
 import sys
+import threading
 import time
 
 # ─── ANSI primitives ──────────────────────────────────────────────────────────
@@ -109,6 +111,18 @@ def _term_width():
         return 80
 
 
+def _term_size():
+    try:
+        return os.get_terminal_size()
+    except OSError:
+        return os.terminal_size((80, 24))
+
+
+def _blank():
+    sys.stdout.write(f"{BG}{ERASE_EOL}{C_RESET}\n")
+    sys.stdout.flush()
+
+
 def animate_logo():
     sys.stdout.write(HIDE_CURSOR)
     max_width = max(len(line) for line in LOGO_LINES)
@@ -160,25 +174,321 @@ def animate_subtitle():
     sys.stdout.write(f"{BG}{ERASE_EOL}{C_RESET}\n")
     sys.stdout.flush()
 
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+IS_WIN = os.name == "nt"
+
+def _project_dir():
+    return os.path.dirname(os.path.abspath(__file__))
+
+def _cache(*parts):
+    return os.path.join(_project_dir(), "cli", "cache", *parts)
+
+def _run(cmd, **kwargs):
+    """Run a command, returns CompletedProcess. cmd is a list."""
+    return subprocess.run(cmd, capture_output=True, text=True,
+                          cwd=_project_dir(), **kwargs)
+
+def _print_raw(text):
+    sys.stdout.write(f"{BG}  {text}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+    sys.stdout.flush()
+
+
+# ─── Hint bar ─────────────────────────────────────────────────────────────────
+
+class HintBar:
+    def __init__(self):
+        self._stop   = threading.Event()
+        self._thread = None
+
+    def _draw(self):
+        rows = _term_size().lines
+        sys.stdout.write(
+            f"\0337\033[{rows};1H"
+            f"{BG}{C_DIM}  ctrl+c to exit{C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+            f"\0338"
+        )
+        sys.stdout.flush()
+
+    def _loop(self):
+        while not self._stop.is_set():
+            self._draw()
+            time.sleep(1)
+
+    def start(self):
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self._stop.set()
+        if self._thread:
+            self._thread.join()
+        rows = _term_size().lines
+        sys.stdout.write(f"\0337\033[{rows};1H{C_RESET}{ERASE_EOL}\0338")
+        sys.stdout.flush()
+
+
+# ─── Spinner ──────────────────────────────────────────────────────────────────
+
+class Spinner:
+    FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+    def __init__(self, message):
+        self.message = message
+        self._stop   = threading.Event()
+        self._thread = None
+
+    def _spin(self):
+        i = 0
+        while not self._stop.is_set():
+            f = self.FRAMES[i % len(self.FRAMES)]
+            sys.stdout.write(
+                f"\r{BG}  {C_GREEN}{f}{C_RESET}{BG}  {C_BODY}{self.message}{C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+            )
+            sys.stdout.flush()
+            i += 1
+            time.sleep(0.08)
+
+    def start(self):
+        sys.stdout.write(HIDE_CURSOR)
+        self._thread = threading.Thread(target=self._spin, daemon=True)
+        self._thread.start()
+        return self
+
+    def done(self, msg):
+        self._stop.set(); self._thread.join()
+        sys.stdout.write(SHOW_CURSOR)
+        sys.stdout.write(
+            f"\r{BG}  {C_GREEN}✓{C_RESET}{BG}  {C_BODY}{msg}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+        )
+        sys.stdout.flush()
+
+    def fail(self, msg):
+        self._stop.set(); self._thread.join()
+        sys.stdout.write(SHOW_CURSOR)
+        sys.stdout.write(
+            f"\r{BG}  {C_RED}✗{C_RESET}{BG}  {C_BODY}{msg}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+        )
+        sys.stdout.flush()
+
+    def skip(self, msg):
+        self._stop.set(); self._thread.join()
+        sys.stdout.write(SHOW_CURSOR)
+        sys.stdout.write(
+            f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}{msg}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+        )
+        sys.stdout.flush()
+
+
+# ─── UI helpers ───────────────────────────────────────────────────────────────
+
+def _section(title):
+    _blank()
+    sys.stdout.write(f"{BG}  {C_GREEN}{C_BOLD}{title}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+    sys.stdout.write(f"{BG}  {C_DIM}{'─' * 44}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+    _blank()
+
+def _prompt(question):
+    sys.stdout.write(
+        f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}{question}{C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+    )
+    sys.stdout.flush()
+    return input().strip().lower()
+
+
+# ─── Install steps ────────────────────────────────────────────────────────────
+
+def step_check_uv():
+    s = Spinner("looking for uv...").start()
+    time.sleep(0.3)
+    try:
+        r = _run(["uv", "--version"])
+        if r.returncode == 0:
+            s.done(r.stdout.strip())
+            return True
+    except FileNotFoundError:
+        pass
+    s.fail("uv not found")
+    _blank()
+    if IS_WIN:
+        _print_raw(f"{C_DIM}  winget install astral-sh.uv{C_RESET}")
+        _print_raw(f"{C_DIM}  powershell -c \"irm https://astral.sh/uv/install.ps1 | iex\"{C_RESET}")
+    else:
+        _print_raw(f"{C_DIM}  curl -LsSf https://astral.sh/uv/install.sh | sh{C_RESET}")
+        _print_raw(f"{C_DIM}  brew install uv{C_RESET}")
+    _blank()
+    return False
+
+
+def step_install_deps():
+    s = Spinner("syncing dependencies...").start()
+    r = _run(["uv", "sync"])
+    if r.returncode == 0:
+        s.done("dependencies synced")
+        return True
+    s.fail("sync failed")
+    if r.stderr:
+        _print_raw(f"{C_DIM}{r.stderr.strip()[:300]}{C_RESET}")
+    return False
+
+
+def step_api_key():
+    env_path = os.path.join(_project_dir(), ".env")
+    existing = None
+    if os.path.exists(env_path):
+        with open(env_path) as f:
+            for line in f:
+                if line.startswith("GEMINI_API_KEY="):
+                    val = line.strip().split("=", 1)[1]
+                    if val and val != "your_gemini_api_key_here":
+                        existing = val
+
+    if existing:
+        masked = existing[:8] + "···" + existing[-4:]
+        sys.stdout.write(
+            f"\r{BG}  {C_GREEN}✓{C_RESET}{BG}  {C_BODY}Gemini API key already set  ({masked}){C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+        )
+        sys.stdout.flush()
+        return True
+
+    sys.stdout.write(
+        f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}Gemini API key (Enter to skip): {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+    )
+    sys.stdout.flush()
+    key = input().strip()
+
+    if not key:
+        sys.stdout.write(
+            f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}Skipped — add GEMINI_API_KEY to .env later{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+        )
+        sys.stdout.flush()
+        return False
+
+    s = Spinner("writing to .env...").start()
+    time.sleep(0.3)
+    lines, written = [], False
+    if os.path.exists(env_path):
+        with open(env_path) as f:
+            for line in f:
+                if line.startswith("GEMINI_API_KEY="):
+                    lines.append(f"GEMINI_API_KEY={key}\n"); written = True
+                else:
+                    lines.append(line)
+    if not written:
+        lines.append(f"GEMINI_API_KEY={key}\n")
+    with open(env_path, "w") as f:
+        f.writelines(lines)
+    s.done("saved to .env")
+    return True
+
+
+def step_build_bm25():
+    cache = _cache("index.pkl")
+    if os.path.exists(cache):
+        sys.stdout.write(
+            f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}BM25 index already exists, skipping{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+        )
+        sys.stdout.flush()
+        return True
+    s = Spinner("building BM25 index...").start()
+    r = _run(["uv", "run", "cli/keyword_search_cli.py", "build"])
+    if r.returncode == 0:
+        s.done("BM25 index built")
+        return True
+    s.fail("BM25 build failed")
+    if r.stderr:
+        _print_raw(f"{C_DIM}{r.stderr.strip()[:300]}{C_RESET}")
+    return False
+
+
+def step_build_semantic():
+    cache = _cache("chunk_embeddings.npy")
+    if os.path.exists(cache):
+        sys.stdout.write(
+            f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}semantic index already exists, skipping{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+        )
+        sys.stdout.flush()
+        return True
+    s = Spinner("embedding chunks — downloads model on first run...").start()
+    try:
+        r = _run(["uv", "run", "cli/semantic_search-cli.py", "embedchunks"], timeout=300)
+        if r.returncode == 0:
+            s.done("semantic index built")
+            return True
+        s.fail("embedding failed")
+        if r.stderr:
+            _print_raw(f"{C_DIM}{r.stderr.strip()[:300]}{C_RESET}")
+    except subprocess.TimeoutExpired:
+        s.fail("timed out  —  run manually: uv run cli/semantic_search-cli.py embedchunks")
+    return False
+
+
+def step_demo_search():
+    query = "sci-fi adventure in space"
+    s = Spinner(f'searching "{query}"...').start()
+    try:
+        r = _run(
+            ["uv", "run", "cli/hybrid_search_cli.py", "rrfsearch", query, "--limit", "3"],
+            timeout=120,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            s.done("search is working")
+            _blank()
+            for line in r.stdout.strip().split("\n")[:3]:
+                _print_raw(f"{C_DIM}{line}{C_RESET}")
+            _blank()
+            return True
+        s.fail("no results — semantic index may not be built yet")
+        if r.stderr:
+            _print_raw(f"{C_DIM}{r.stderr.strip()[:200]}{C_RESET}")
+    except subprocess.TimeoutExpired:
+        s.fail("timed out")
+    return False
+
+
+def run_install():
+    _section("dependencies")
+    if not step_check_uv():
+        _print_raw(f"{C_RED}install uv and re-run setup{C_RESET}")
+        return False
+    if not step_install_deps():
+        return False
+
+    _section("api key")
+    step_api_key()
+
+    _section("indexes")
+    if not step_build_bm25():
+        _print_raw(f"{C_RED}retry:  uv run cli/keyword_search_cli.py build{C_RESET}")
+        return False
+    if _prompt("build semantic index now? downloads model on first run, ~1 min  [Y/n]: ") != "n":
+        step_build_semantic()
+
+    _section("smoke test")
+    step_demo_search()
+    return True
+
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
+    hint = HintBar()
     try:
         setup_terminal()
-        os.system("cls" if os.name == "nt" else "clear")
+        os.system("cls" if IS_WIN else "clear")
         for _ in range(3):
             sys.stdout.write(f"{BG}{ERASE_EOL}{C_RESET}\n")
         sys.stdout.flush()
+        hint.start()
         animate_logo()
         animate_subtitle()
+        run_install()
 
-        # Stay alive in themed mode until Ctrl+C.
-        # Steps will go here as they are built out.
         while True:
             time.sleep(0.5)
 
     except KeyboardInterrupt:
+        hint.stop()
         sys.stdout.write(SHOW_CURSOR)
         restore_terminal()
         print()
