@@ -423,27 +423,63 @@ def step_build_semantic():
     return False
 
 
-def step_demo_search():
-    query = "sci-fi adventure in space"
-    s = Spinner(f'searching "{query}"...').start()
-    try:
-        r = _run(
-            ["uv", "run", "cli/hybrid_search_cli.py", "rrfsearch", query, "--limit", "3"],
-            timeout=120,
+SEARCH_TYPES = [
+    ("1", "keyword     BM25 inverted index search",         ["uv", "run", "cli/keyword_search_cli.py",        "bm25search"]),
+    ("2", "semantic    vector similarity search",            ["uv", "run", "cli/semantic_search-cli.py",       "search"]),
+    ("3", "hybrid      BM25 + semantic, RRF reranked",       ["uv", "run", "cli/hybrid_search_cli.py",         "rrfsearch"]),
+    ("4", "rag         retrieve + generate answer with LLM", ["uv", "run", "cli/augmented_generation_cli.py",  "rag"]),
+]
+
+
+def step_try_search():
+    _blank()
+    sys.stdout.write(
+        f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}your query: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+    )
+    sys.stdout.flush()
+    query = input().strip()
+    if not query:
+        sys.stdout.write(
+            f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}skipped{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
         )
+        sys.stdout.flush()
+        return
+
+    _blank()
+    for key, label, _ in SEARCH_TYPES:
+        sys.stdout.write(f"{BG}  {C_GREEN}{key}{C_RESET}{BG}  {C_BODY}{label}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+    _blank()
+
+    sys.stdout.write(
+        f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}pick a search type [1-4]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+    )
+    sys.stdout.flush()
+    choice = input().strip()
+
+    cmd = next((c for k, _, c in SEARCH_TYPES if k == choice), None)
+    if not cmd:
+        sys.stdout.write(
+            f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}invalid choice, skipping{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+        )
+        sys.stdout.flush()
+        return
+
+    _blank()
+    s = Spinner(f'running search...').start()
+    try:
+        r = _run(cmd + [query], timeout=120)
         if r.returncode == 0 and r.stdout.strip():
-            s.done("search is working")
+            s.done("done")
             _blank()
-            for line in r.stdout.strip().split("\n")[:3]:
-                _print_raw(f"{C_DIM}{line}{C_RESET}")
+            for line in r.stdout.strip().split("\n"):
+                sys.stdout.write(f"{BG}    {C_BODY}{line}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
             _blank()
-            return True
-        s.fail("no results — semantic index may not be built yet")
-        if r.stderr:
-            _print_raw(f"{C_DIM}{r.stderr.strip()[:200]}{C_RESET}")
+        else:
+            s.fail("no results")
+            if r.stderr:
+                _print_raw(f"{C_DIM}{r.stderr.strip()[:300]}{C_RESET}")
     except subprocess.TimeoutExpired:
         s.fail("timed out")
-    return False
 
 
 def run_install():
@@ -464,10 +500,10 @@ def run_install():
     if _prompt("build semantic index now? downloads model on first run, ~1 min  [Y/n]: ") != "n":
         step_build_semantic()
 
-    _section("smoke test")
-    step_demo_search()
-
     _show_cache_summary()
+
+    _section("try a search")
+    step_try_search()
     return True
 
 
