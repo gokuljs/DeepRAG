@@ -12,6 +12,8 @@ import sys
 import threading
 import time
 
+VERSION = "1.0.0"
+
 # ─── ANSI primitives ──────────────────────────────────────────────────────────
 
 ESC         = "\033"
@@ -381,6 +383,98 @@ def _prompt(question):
     ).lower()
 
 
+# ─── Main screen ──────────────────────────────────────────────────────────────
+
+def _version_bar():
+    now      = time.localtime()
+    date_str = f"{now.tm_year}.{now.tm_mon}.{now.tm_mday}"
+    label    = f" DeepRAG v{VERSION} ({date_str}) "
+    tw       = max(_term_width() - 4, len(label) + 4)
+    left_len = (tw - len(label)) // 2
+    bar      = f"{'─' * left_len}{label}{'─' * (tw - len(label) - left_len)}"
+    sys.stdout.write(f"{BG}  {C_DIM}{bar}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+    sys.stdout.flush()
+
+
+def show_main_screen():
+    """Clear terminal and redraw the full welcome dashboard."""
+    os.system("cls" if IS_WIN else "clear")
+
+    # ── top padding ──────────────────────────────────────────────────────────
+    for _ in range(2):
+        sys.stdout.write(f"{BG}{ERASE_EOL}{C_RESET}\n")
+
+    # ── logo (static reprint, no animation) ──────────────────────────────────
+    max_width = max(len(line) for line in LOGO_LINES)
+    pad = " " * ((_term_width() - max_width) // 2)
+    for i, line in enumerate(LOGO_LINES):
+        sys.stdout.write(
+            f"{BG}{pad}{LOGO_GRADIENT[i]}{C_BOLD}{line}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+        )
+
+    _blank()
+    _version_bar()
+    _blank()
+
+    # ── Available Search Modes ────────────────────────────────────────────────
+    sys.stdout.write(
+        f"{BG}  {C_GREEN}{C_BOLD}Available Search Modes{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+    )
+    col_w = max(len(cat) for cat, _ in SEARCH_DISPLAY_GROUPS) + 1
+    for cat, modes in SEARCH_DISPLAY_GROUPS:
+        label = f"{cat}:"
+        sys.stdout.write(
+            f"{BG}  {C_DIM}{label:<{col_w}}{C_RESET}"
+            f"{BG}  {C_BODY}{', '.join(modes)}{C_RESET}"
+            f"{BG}{ERASE_EOL}{C_RESET}\n"
+        )
+
+    _blank()
+
+    # ── Index Status ──────────────────────────────────────────────────────────
+    sys.stdout.write(
+        f"{BG}  {C_GREEN}{C_BOLD}Index Status{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+    )
+    index_files = [
+        (_cache("index.pkl"),            "bm25 index",     "inverted index · keyword & hybrid search"),
+        (_cache("chunk_embeddings.npy"), "semantic index", "vector embeddings · semantic & hybrid search"),
+    ]
+    for path, lbl, desc in index_files:
+        if os.path.exists(path):
+            sz = os.path.getsize(path)
+            sz_s = f"{sz/1024:.0f} KB" if sz < 1024 * 1024 else f"{sz/1024/1024:.1f} MB"
+            sys.stdout.write(
+                f"{BG}  {C_GREEN}✓{C_RESET}"
+                f"{BG}  {C_BODY}{lbl:<16}{C_RESET}"
+                f"{BG}{C_DIM}{desc}  ({sz_s}){C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+            )
+        else:
+            sys.stdout.write(
+                f"{BG}  {C_DIM}–{C_RESET}"
+                f"{BG}  {C_DIM}{lbl:<16}{desc}  (not built){C_RESET}"
+                f"{BG}{ERASE_EOL}{C_RESET}\n"
+            )
+    key_ok   = _gemini_key_valid()
+    key_icon = f"{C_GREEN}✓" if key_ok else f"{C_DIM}–"
+    key_desc = "rag modes available" if key_ok else "not set  —  rag modes require GEMINI_API_KEY"
+    sys.stdout.write(
+        f"{BG}  {key_icon}{C_RESET}"
+        f"{BG}  {(C_BODY if key_ok else C_DIM)}{'gemini key':<16}{C_RESET}"
+        f"{BG}{C_DIM}{key_desc}{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+    )
+
+    _blank()
+
+    # ── stats footer ──────────────────────────────────────────────────────────
+    sys.stdout.write(
+        f"{BG}  {C_DIM}"
+        f"11 modes  ·  4 categories  ·  type query then pick a number  ·  ctrl+c to exit"
+        f"{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
+    )
+    _blank()
+    sys.stdout.flush()
+
+
 # ─── Install steps ────────────────────────────────────────────────────────────
 
 def step_check_uv():
@@ -533,6 +627,14 @@ SEARCH_GROUPS = [
     ("rag  ✦ requires gemini api key", ["8", "9", "10", "11"]),
 ]
 
+# Human-readable display groups for the welcome panel
+SEARCH_DISPLAY_GROUPS = [
+    ("keyword",  ["bm25", "tfidf"]),
+    ("semantic", ["vector", "chunked"]),
+    ("hybrid",   ["rrf", "weighted", "normalized"]),
+    ("rag  ✦",   ["generate", "summarize", "citations", "q&a"]),
+]
+
 RAG_CHOICES = {"8", "9", "10", "11"}
 
 
@@ -610,9 +712,10 @@ def _run_search(query, choice):
 
 
 def step_try_search():
-    _blank()
+    show_main_screen()
+
     query = _input(
-        f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}your query (enter to skip): {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+        f"\r{BG}  {C_GREEN}›{C_RESET}{BG}  {C_BODY}your query (enter to skip): {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
     )
     if not query:
         sys.stdout.write(
@@ -631,27 +734,27 @@ def step_try_search():
         _blank()
         sys.stdout.write(f"{BG}  {C_GREEN}n{C_RESET}{BG}  {C_BODY}new query{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
         sys.stdout.write(f"{BG}  {C_GREEN}r{C_RESET}{BG}  {C_BODY}same query, different search type{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
-        sys.stdout.write(f"{BG}  {C_GREEN}q{C_RESET}{BG}  {C_BODY}done{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
+        sys.stdout.write(f"{BG}  {C_GREEN}q{C_RESET}{BG}  {C_BODY}quit{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n")
         _blank()
 
         action = _input(
-            f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}what next? [n/r/q]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+            f"\r{BG}  {C_GREEN}›{C_RESET}{BG}  {C_BODY}[n/r/q]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
         )
 
         if action == "q":
             break
 
         elif action == "n":
-            new_query = _input(
-                f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}your query: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
+            show_main_screen()
+            query = _input(
+                f"\r{BG}  {C_GREEN}›{C_RESET}{BG}  {C_BODY}your query: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
             )
-            if not new_query:
+            if not query:
                 sys.stdout.write(
                     f"\r{BG}  {C_DIM}–{C_RESET}{BG}  {C_DIM}query can't be empty{C_RESET}{BG}{ERASE_EOL}{C_RESET}\n"
                 )
                 sys.stdout.flush()
                 continue
-            query = new_query
             _show_search_menu()
             choice = _input(
                 f"\r{BG}  {C_GREEN}?{C_RESET}{BG}  {C_BODY}pick [1-11]: {C_RESET}{BG}{ERASE_EOL}{C_RESET}"
